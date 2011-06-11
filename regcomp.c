@@ -29,6 +29,8 @@
 
 #include "regparse.h"
 
+CRITICAL_SECTION gOnigMutex;
+
 OnigCaseFoldType OnigDefaultCaseFoldFlag = ONIGENC_CASE_FOLD_MIN;
 
 extern OnigCaseFoldType

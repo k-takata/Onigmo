@@ -83,6 +83,22 @@
 #  define ARG_UNUSED
 #endif
 
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+extern CRITICAL_SECTION gOnigMutex;
+#include <stddef.h>
+
+#if defined(_MSC_VER) && (_MSC_VER < 1300)
+#ifndef _INTPTR_T_DEFINED
+#define _INTPTR_T_DEFINED
+typedef int intptr_t;
+#endif
+#ifndef _UINTPTR_T_DEFINED
+#define _UINTPTR_T_DEFINED
+typedef unsigned int uintptr_t;
+#endif
+#endif
+
 /* */
 /* escape other system UChar definition */
 #include "config.h"
@@ -91,18 +107,18 @@
 #endif
 
 #define USE_WORD_BEGIN_END        /* "\<", "\>" */
-#define USE_CAPTURE_HISTORY
-#define USE_VARIABLE_META_CHARS
-#define USE_POSIX_API_REGION_OPTION
+/* #define USE_CAPTURE_HISTORY */
+/* #define USE_VARIABLE_META_CHARS */
+/* #define USE_POSIX_API_REGION_OPTION */
 #define USE_FIND_LONGEST_SEARCH_ALL_OF_RANGE
 /* #define USE_COMBINATION_EXPLOSION_CHECK */     /* (X*)* */
 
-/* #define USE_MULTI_THREAD_SYSTEM */
-#define THREAD_SYSTEM_INIT      /* depend on thread system */
-#define THREAD_SYSTEM_END       /* depend on thread system */
-#define THREAD_ATOMIC_START     /* depend on thread system */
-#define THREAD_ATOMIC_END       /* depend on thread system */
-#define THREAD_PASS             /* depend on thread system */
+#define USE_MULTI_THREAD_SYSTEM
+#define THREAD_SYSTEM_INIT      InitializeCriticalSection(&gOnigMutex)
+#define THREAD_SYSTEM_END       DeleteCriticalSection(&gOnigMutex)
+#define THREAD_ATOMIC_START     EnterCriticalSection(&gOnigMutex)
+#define THREAD_ATOMIC_END       LeaveCriticalSection(&gOnigMutex)
+#define THREAD_PASS             Sleep(0)
 #define xmalloc     malloc
 #define xrealloc    realloc
 #define xcalloc     calloc
