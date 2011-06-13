@@ -495,7 +495,7 @@ ONIG_EXTERN OnigSyntaxType*   OnigDefaultSyntax;
 #define ONIG_SYN_OP2_QMARK_SUBEXP_CALL          (1U<<27) /* (?&name), (?n), (?R), (?0) */
 #define ONIG_SYN_OP2_QMARK_BAR_BRANCH_RESET     (1U<<28) /* (?|...) */         /* NOTIMPL */
 #define ONIG_SYN_OP2_QMARK_LPAREN_CONDITION     (1U<<29) /* (?(cond)yes...|no...) */ /* NOTIMPL */
-#define ONIG_SYN_OP2_QMARK_CAPITAL_P_NAMED_GROUP (1U<<30) /* (?P<name>...), (?P=name), (?P>name) -- Python/PCRE */ /* NOTIMPL */
+#define ONIG_SYN_OP2_QMARK_CAPITAL_P_NAMED_GROUP (1U<<30) /* (?P<name>...), (?P=name), (?P>name) -- Python/PCRE */
 #define ONIG_SYN_OP2_OPTION_JAVA                (1U<<31) /* (?idmsux), (?-idmsux) */ /* NOTIMPL */
 
 /* syntax (behavior) */
@@ -510,7 +510,7 @@ ONIG_EXTERN OnigSyntaxType*   OnigDefaultSyntax;
 #define ONIG_SYN_CAPTURE_ONLY_NAMED_GROUP        (1U<<7)  /* see doc/RE */
 #define ONIG_SYN_ALLOW_MULTIPLEX_DEFINITION_NAME (1U<<8)  /* (?<x>)(?<x>) */
 #define ONIG_SYN_FIXED_INTERVAL_IS_GREEDY_ONLY   (1U<<9)  /* a{n}?=(?:a{n})? */
-#define ONIG_SYN_CAPTURE_LEFT_MOST_NAMED_GROUP   (1U<<10) /* as Perl */ /* NOTIMPL */
+#define ONIG_SYN_ALLOW_MULTIPLEX_DEFINITION_NAME_CALL (1U<<10)  /* (?<x>)(?<x>)(?&x) */
 
 /* syntax (behavior) in char class [...] */
 #define ONIG_SYN_NOT_NEWLINE_IN_NEGATIVE_CC      (1U<<20) /* [^...] */
