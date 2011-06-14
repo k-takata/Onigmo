@@ -192,6 +192,7 @@ ONIG_EXTERN OnigEncodingType OnigEncodingEUC_TW;
 ONIG_EXTERN OnigEncodingType OnigEncodingEUC_KR;
 ONIG_EXTERN OnigEncodingType OnigEncodingEUC_CN;
 ONIG_EXTERN OnigEncodingType OnigEncodingSJIS;
+ONIG_EXTERN OnigEncodingType OnigEncodingCP932;
 ONIG_EXTERN OnigEncodingType OnigEncodingKOI8;
 ONIG_EXTERN OnigEncodingType OnigEncodingKOI8_R;
 ONIG_EXTERN OnigEncodingType OnigEncodingCP1251;
@@ -224,6 +225,7 @@ ONIG_EXTERN OnigEncodingType OnigEncodingGB18030;
 #define ONIG_ENCODING_EUC_KR       (&OnigEncodingEUC_KR)
 #define ONIG_ENCODING_EUC_CN       (&OnigEncodingEUC_CN)
 #define ONIG_ENCODING_SJIS         (&OnigEncodingSJIS)
+#define ONIG_ENCODING_CP932        (&OnigEncodingCP932)
 #define ONIG_ENCODING_KOI8         (&OnigEncodingKOI8)
 #define ONIG_ENCODING_KOI8_R       (&OnigEncodingKOI8_R)
 #define ONIG_ENCODING_CP1251       (&OnigEncodingCP1251)
@@ -411,8 +413,9 @@ ONIG_EXTERN OnigSyntaxType OnigSyntaxEmacs;
 ONIG_EXTERN OnigSyntaxType OnigSyntaxGrep;
 ONIG_EXTERN OnigSyntaxType OnigSyntaxGnuRegex;
 ONIG_EXTERN OnigSyntaxType OnigSyntaxJava;
+ONIG_EXTERN OnigSyntaxType OnigSyntaxPerl58;
+ONIG_EXTERN OnigSyntaxType OnigSyntaxPerl58_NG;
 ONIG_EXTERN OnigSyntaxType OnigSyntaxPerl;
-ONIG_EXTERN OnigSyntaxType OnigSyntaxPerl_NG;
 ONIG_EXTERN OnigSyntaxType OnigSyntaxRuby;
 
 /* predefined syntaxes (see regsyntax.c) */
@@ -423,8 +426,9 @@ ONIG_EXTERN OnigSyntaxType OnigSyntaxRuby;
 #define ONIG_SYNTAX_GREP               (&OnigSyntaxGrep)
 #define ONIG_SYNTAX_GNU_REGEX          (&OnigSyntaxGnuRegex)
 #define ONIG_SYNTAX_JAVA               (&OnigSyntaxJava)
+#define ONIG_SYNTAX_PERL58             (&OnigSyntaxPerl58)
+#define ONIG_SYNTAX_PERL58_NG          (&OnigSyntaxPerl58_NG)
 #define ONIG_SYNTAX_PERL               (&OnigSyntaxPerl)
-#define ONIG_SYNTAX_PERL_NG            (&OnigSyntaxPerl_NG)
 #define ONIG_SYNTAX_RUBY               (&OnigSyntaxRuby)
 
 /* default syntax */

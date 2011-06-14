@@ -50,7 +50,10 @@ OnigSyntaxType OnigSyntaxRuby = {
       ONIG_SYN_OP2_PLUS_POSSESSIVE_REPEAT |
       ONIG_SYN_OP2_CCLASS_SET_OP | ONIG_SYN_OP2_ESC_CAPITAL_C_BAR_CONTROL |
       ONIG_SYN_OP2_ESC_CAPITAL_M_BAR_META | ONIG_SYN_OP2_ESC_V_VTAB |
-      ONIG_SYN_OP2_ESC_H_XDIGIT )
+      ONIG_SYN_OP2_ESC_H_XDIGIT |
+      ONIG_SYN_OP2_ESC_CAPITAL_X_EXTENDED_GRAPHEME_CLUSTER |
+      ONIG_SYN_OP2_ESC_CAPITAL_R_LINEBREAK |
+      ONIG_SYN_OP2_ESC_CAPITAL_K_KEEP )
   , ( SYN_GNU_REGEX_BV |
       ONIG_SYN_ALLOW_INTERVAL_LOW_ABBREV |
       ONIG_SYN_DIFFERENT_LEN_ALT_LOOK_BEHIND |
@@ -2308,6 +2311,7 @@ typedef struct {
       UChar* name;
       UChar* name_end;
       int    gnum;
+      int    rel;
     } call;
     struct {
       int ctype;
@@ -3579,6 +3583,7 @@ fetch_token(OnigToken* tok, UChar** src, UChar* end, ScanEnv* env)
 	  tok->u.call.name     = prev;
 	  tok->u.call.name_end = name_end;
 	  tok->u.call.gnum     = gnum;
+	  tok->u.call.rel      = 0;
 	}
 	else
 	  PUNFETCH;
@@ -3746,7 +3751,7 @@ fetch_token(OnigToken* tok, UChar** src, UChar* end, ScanEnv* env)
           }
           goto start;
         }
-#if defined(USE_SUBEXP_CALL) && defined(USE_PERL_SUBEXP_CALL)
+#ifdef USE_PERL_SUBEXP_CALL
 	/* (?&name), (?n), (?R), (?0), (?+n), (?-n) */
 	c = PPEEK;
 	if ((c == '&' || c == 'R' || ONIGENC_IS_CODE_DIGIT(enc, c)) &&
@@ -3774,6 +3779,7 @@ fetch_token(OnigToken* tok, UChar** src, UChar* end, ScanEnv* env)
 	  tok->u.call.name     = name;
 	  tok->u.call.name_end = name_end;
 	  tok->u.call.gnum     = gnum;
+	  tok->u.call.rel      = 0;
 	  break;
 	}
 	else if ((c == '-' || c == '+') &&
@@ -3793,17 +3799,15 @@ fetch_token(OnigToken* tok, UChar** src, UChar* end, ScanEnv* env)
 	    r = fetch_name((OnigCodePoint )'(', &p, end, &name_end, env, &gnum, 1);
 	    if (r < 0) return r;
 
-	    if (c == '+') {
-	      /* TODO: support for positive relative number */
-	    }
 	    tok->type = TK_CALL;
 	    tok->u.call.name     = name;
 	    tok->u.call.name_end = name_end;
 	    tok->u.call.gnum     = gnum;
+	    tok->u.call.rel      = 1;
 	    break;
 	  }
 	}
-#endif
+#endif /* USE_PERL_SUBEXP_CALL */
 #ifdef USE_CAPITAL_P_NAMED_GROUP
 	if (PPEEK_IS('P') &&
 	    IS_SYNTAX_OP2(env->syntax, ONIG_SYN_OP2_QMARK_CAPITAL_P_NAMED_GROUP)) {
@@ -3828,11 +3832,12 @@ fetch_token(OnigToken* tok, UChar** src, UChar* end, ScanEnv* env)
 	    tok->u.call.name     = name;
 	    tok->u.call.name_end = name_end;
 	    tok->u.call.gnum     = gnum;
+	    tok->u.call.rel      = 0;
 	    break;
 	  }
 	  PUNFETCH;
 	}
-#endif
+#endif /* USE_CAPITAL_P_NAMED_GROUP */
         PUNFETCH;
       }
 
@@ -5694,7 +5699,8 @@ parse_exp(Node** np, OnigToken* tok, int term,
     {
       int gnum = tok->u.call.gnum;
 
-      if (gnum < 0) {
+      if (gnum < 0 || tok->u.call.rel != 0) {
+	if (gnum > 0) gnum--;
 	gnum = BACKREF_REL_TO_ABS(gnum, env);
 	if (gnum <= 0)
 	  return ONIGERR_INVALID_BACKREF;
@@ -5892,6 +5898,21 @@ parse_regexp(Node** top, UChar** src, UChar* end, ScanEnv* env)
   if (r < 0) return r;
   r = parse_subexp(top, &tok, TK_EOT, src, end, env);
   if (r < 0) return r;
+
+#ifdef USE_PERL_SUBEXP_CALL
+  if (env->num_call > 0) {
+    /* Capture the pattern itself. It is used for (?R) and (?0). */
+    const int num = 0;
+    Node* np;
+    np = node_new_enclose_memory(env->option, 0);
+    CHECK_NULL_RETURN_MEMERR(np);
+    NENCLOSE(np)->regnum = num;
+    NENCLOSE(np)->target = *top;
+    r = scan_env_set_mem_node(env, num, np);
+    if (r != 0) return r;
+    *top = np;
+  }
+#endif
   return 0;
 }
 

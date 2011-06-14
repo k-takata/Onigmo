@@ -394,6 +394,47 @@ static const OnigCodePoint CR_Katakana[] = {
   0x8380, 0x8396,
 }; /* CR_Katakana */
 
+#ifdef ENC_CP932
+static const OnigCodePoint CR_Han[] = {
+  6,
+  0x8157, 0x8157,
+  0x889f, 0x9872,
+  0x989f, 0x9ffc,
+  0xe040, 0xeaa4,
+  0xed40, 0xeeec,	/* NECëIíËIBMägí£ï∂éö(èúãLçÜ) */
+  0xfa5c, 0xfc4b,	/* IBMägí£ï∂éö(èúãLçÜ) */
+}; /* CR_Han */
+#else
+static const OnigCodePoint CR_Han[] = {
+  4,
+  0x8157, 0x8157,
+  0x889f, 0x9872,
+  0x989f, 0x9ffc,
+  0xe040, 0xeaa4,
+}; /* CR_Han */
+#endif
+
+static const OnigCodePoint CR_Latin[] = {
+  4,
+  0x0041, 0x005a,
+  0x0061, 0x007a,
+  0x8260, 0x8279,
+  0x8281, 0x829a,
+}; /* CR_Latin */
+
+static const OnigCodePoint CR_Greek[] = {
+  2,
+  0x839f, 0x83b6,
+  0x83bf, 0x83d6,
+}; /* CR_Greek */
+
+static const OnigCodePoint CR_Cyrillic[] = {
+  3,
+  0x8440, 0x8460,
+  0x8470, 0x847f,
+  0x8480, 0x8491,
+}; /* CR_Cyrillic */
+
 static int
 init_property_list(void)
 {
@@ -401,6 +442,10 @@ init_property_list(void)
 
   PROPERTY_LIST_ADD_PROP("Hiragana", CR_Hiragana);
   PROPERTY_LIST_ADD_PROP("Katakana", CR_Katakana);
+  PROPERTY_LIST_ADD_PROP("Han", CR_Han);
+  PROPERTY_LIST_ADD_PROP("Latin", CR_Latin);
+  PROPERTY_LIST_ADD_PROP("Greek", CR_Greek);
+  PROPERTY_LIST_ADD_PROP("Cyrillic", CR_Cyrillic);
   PropertyInited = 1;
 
  end:
@@ -467,6 +512,26 @@ get_ctype_code_range(OnigCtype ctype, OnigCodePoint* sb_out,
   }
 }
 
+#ifdef ENC_CP932
+OnigEncodingType OnigEncodingCP932 = {
+  mbc_enc_len,
+  "CP932",       /* name */
+  2,             /* max byte length */
+  1,             /* min byte length */
+  onigenc_is_mbc_newline_0x0a,
+  mbc_to_code,
+  code_to_mbclen,
+  code_to_mbc,
+  mbc_case_fold,
+  apply_all_case_fold,
+  get_case_fold_codes_by_str,
+  property_name_to_ctype,
+  is_code_ctype,
+  get_ctype_code_range,
+  left_adjust_char_head,
+  is_allowed_reverse_match
+};
+#else
 OnigEncodingType OnigEncodingSJIS = {
   mbc_enc_len,
   "Shift_JIS",   /* name */
@@ -485,3 +550,4 @@ OnigEncodingType OnigEncodingSJIS = {
   left_adjust_char_head,
   is_allowed_reverse_match
 };
+#endif

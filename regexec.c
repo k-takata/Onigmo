@@ -386,10 +386,10 @@ onig_region_copy(OnigRegion* to, OnigRegion* from)
     if ((msa).state_check_buff) xfree((msa).state_check_buff);\
   }\
 } while(0)
-#else
+#else /* USE_COMBINATION_EXPLOSION_CHECK */
 #define STATE_CHECK_BUFF_INIT(msa, str_len, offset, state_num)
 #define MATCH_ARG_FREE(msa)  if ((msa).stack_p) xfree((msa).stack_p)
-#endif
+#endif /* USE_COMBINATION_EXPLOSION_CHECK */
 
 
 
@@ -1085,7 +1085,7 @@ make_capture_history_tree(OnigCaptureTreeNode* node, OnigStackType** kp,
 
   return 1; /* 1: root node ending. */
 }
-#endif
+#endif /* USE_CAPTURE_HISTORY */
 
 #ifdef USE_BACKREF_WITH_LEVEL
 static int mem_is_in_memp(int mem, int num, UChar* memp)
@@ -1173,14 +1173,14 @@ static struct timeval ts, te;
 #define GETTIME(t)        gettimeofday(&(t), (struct timezone* )0)
 #define TIMEDIFF(te,ts)   (((te).tv_usec - (ts).tv_usec) + \
                            (((te).tv_sec - (ts).tv_sec)*1000000))
-#else
+#else /* USE_TIMEOFDAY */
 #ifdef HAVE_SYS_TIMES_H
 #include <sys/times.h>
 #endif
 static struct tms ts, te;
 #define GETTIME(t)         times(&(t))
 #define TIMEDIFF(te,ts)   ((te).tms_utime - (ts).tms_utime)
-#endif
+#endif /* USE_TIMEOFDAY */
 
 static int OpCounter[256];
 static int OpPrevCounter[256];
@@ -1229,12 +1229,12 @@ onig_print_statistics(FILE* f)
     MaxStackDepth = stk - stk_base;\
 } while(0)
 
-#else
+#else /* ONIG_DEBUG_STATISTICS */
 #define STACK_INC     stk++
 
 #define MOP_IN(opcode)
 #define MOP_OUT
-#endif
+#endif /* ONIG_DEBUG_STATISTICS */
 
 
 #define IS_MBC_ASCII_WORD(enc,s,end) \
@@ -1283,6 +1283,23 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
   unsigned char* state_check_buff = msa->state_check_buff;
   int num_comb_exp_check = reg->num_comb_exp_check;
 #endif
+
+#ifdef USE_PERL_SUBEXP_CALL
+  /* Stack #0 is used to store the pattern itself and used for (?R). */
+  n = reg->num_repeat + (reg->num_mem + 1) * 2;
+
+  STACK_INIT(alloca_base, n, INIT_MATCH_STACK_SIZE);
+  pop_level = reg->stack_pop_level;
+  num_mem = reg->num_mem;
+  repeat_stk = (OnigStackIndex* )alloca_base;
+
+  mem_start_stk = (OnigStackIndex* )(repeat_stk + reg->num_repeat);
+  mem_end_stk   = mem_start_stk + (num_mem + 1);
+  for (i = 0; i <= num_mem; i++) {
+    mem_start_stk[i] = mem_end_stk[i] = INVALID_STACK_INDEX;
+  }
+#else /* USE_PERL_SUBEXP_CALL */
+  /* Stack #0 not is used. */
   n = reg->num_repeat + reg->num_mem * 2;
 
   STACK_INIT(alloca_base, n, INIT_MATCH_STACK_SIZE);
@@ -1299,6 +1316,7 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
   for (i = 1; i <= num_mem; i++) {
     mem_start_stk[i] = mem_end_stk[i] = INVALID_STACK_INDEX;
   }
+#endif /* USE_PERL_SUBEXP_CALL */
 
 #ifdef ONIG_DEBUG_MATCH
   fprintf(stderr, "match_at: str: %d, end: %d, start: %d, sprev: %d\n",
