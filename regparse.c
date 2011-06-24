@@ -53,6 +53,7 @@ OnigSyntaxType OnigSyntaxRuby = {
       ONIG_SYN_OP2_ESC_CAPITAL_M_BAR_META | ONIG_SYN_OP2_ESC_V_VTAB |
       ONIG_SYN_OP2_ESC_H_XDIGIT |
       ONIG_SYN_OP2_ESC_CAPITAL_X_EXTENDED_GRAPHEME_CLUSTER |
+      ONIG_SYN_OP2_QMARK_LPAREN_CONDITION |
       ONIG_SYN_OP2_ESC_CAPITAL_R_LINEBREAK |
       ONIG_SYN_OP2_ESC_CAPITAL_K_KEEP )
   , ( SYN_GNU_REGEX_BV |
@@ -3770,9 +3771,13 @@ fetch_token(OnigToken* tok, UChar** src, UChar* end, ScanEnv* env)
 	    gnum = 0;
 	  }
 	  else {
-	    if (c == '&') PINC;
+	    int numref = 1;
+	    if (c == '&') {     /* (?&name) */
+	      PINC;
+	      numref = 0;       /* don't allow number name */
+	    }
 	    name = p;
-	    r = fetch_name((OnigCodePoint )'(', &p, end, &name_end, env, &gnum, 1);
+	    r = fetch_name((OnigCodePoint )'(', &p, end, &name_end, env, &gnum, numref);
 	    if (r < 0) return r;
 	  }
 
@@ -3784,7 +3789,7 @@ fetch_token(OnigToken* tok, UChar** src, UChar* end, ScanEnv* env)
 	  break;
 	}
 	else if ((c == '-' || c == '+') &&
-	    IS_SYNTAX_OP2(env->syntax, ONIG_SYN_OP2_QMARK_SUBEXP_CALL)) {  /* (?+n), (?-n) */
+	    IS_SYNTAX_OP2(env->syntax, ONIG_SYN_OP2_QMARK_SUBEXP_CALL)) {
 	  /* (?+n), (?-n) */
 	  int gnum;
 	  UChar *name;
@@ -3826,7 +3831,7 @@ fetch_token(OnigToken* tok, UChar** src, UChar* end, ScanEnv* env)
 	  }
 	  else if (c == '>') {  /* (?P>name): subexp call */
 	    name = p;
-	    r = fetch_name((OnigCodePoint )'(', &p, end, &name_end, env, &gnum, 1);
+	    r = fetch_name((OnigCodePoint )'(', &p, end, &name_end, env, &gnum, 0);
 	    if (r < 0) return r;
 
 	    tok->type = TK_CALL;
@@ -4681,8 +4686,8 @@ static int
 parse_enclose(Node** np, OnigToken* tok, int term, UChar** src, UChar* end,
 	      ScanEnv* env)
 {
-  int r, num;
-  Node *target;
+  int r = 0, num;
+  Node *target, *work1 = NULL, *work2 = NULL;
   OnigOptionType option;
   OnigCodePoint c;
   OnigEncoding enc = env->enc;
@@ -4824,6 +4829,73 @@ parse_enclose(Node** np, OnigToken* tok, int term, UChar** src, UChar* end,
       }
       break;
 
+    case '(':   /* conditional expression: (?(cond)yes), (?(cond)yes|no) */
+      if (IS_SYNTAX_OP2(env->syntax, ONIG_SYN_OP2_QMARK_LPAREN_CONDITION)) {
+	UChar *name = NULL;
+	UChar *name_end;
+	PFETCH(c);
+	if (ONIGENC_IS_CODE_DIGIT(enc, c)) {     /* (n) */
+	  PUNFETCH;
+	  r = fetch_name((OnigCodePoint )'(', &p, end, &name_end, env, &num, 1);
+	  if (r < 0) return r;
+	  if (num < 0) {
+	    num = BACKREF_REL_TO_ABS(num, env);
+	    if (num <= 0)
+	      return ONIGERR_INVALID_BACKREF;
+	  }
+	  if (IS_SYNTAX_BV(env->syntax, ONIG_SYN_STRICT_CHECK_BACKREF)) {
+	    if (num > env->num_mem ||
+	        IS_NULL(SCANENV_MEM_NODES(env)[num]))
+	    return ONIGERR_INVALID_BACKREF;
+	  }
+	}
+#ifdef USE_NAMED_GROUP
+	else if (c == '<' || c == '\'') {    /* (<name>), ('name') */
+	  int nums;
+	  int *backs;
+
+	  name = p;
+	  r = fetch_name((OnigCodePoint )c, &p, end, &name_end, env, &num, 0);
+	  if (r < 0) return r;
+	  PFETCH(c);
+	  if (c != ')') return ONIGERR_UNDEFINED_GROUP_OPTION;
+
+	  nums = onig_name_to_group_numbers(env->reg, name, name_end, &backs);
+	  if (nums <= 0) {
+	    onig_scan_env_set_error_string(env,
+		     ONIGERR_UNDEFINED_NAME_REFERENCE, name, name_end);
+	    return ONIGERR_UNDEFINED_NAME_REFERENCE;
+	  }
+	  if (IS_SYNTAX_BV(env->syntax, ONIG_SYN_STRICT_CHECK_BACKREF)) {
+	    int i;
+	    for (i = 0; i < nums; i++) {
+	      if (backs[i] > env->num_mem ||
+		  IS_NULL(SCANENV_MEM_NODES(env)[backs[i]]))
+	      return ONIGERR_INVALID_BACKREF;
+	    }
+	  }
+	  num = backs[0];       /* XXX: use left most named group as Perl */
+	}
+#endif
+	*np = node_new_enclose(ENCLOSE_CONDITION);
+	CHECK_NULL_RETURN_MEMERR(*np);
+	NENCLOSE(*np)->regnum = num;
+	if (IS_NOT_NULL(name)) NENCLOSE(*np)->state |= NST_NAME_REF;
+      }
+      else
+	return ONIGERR_UNDEFINED_GROUP_OPTION;
+      break;
+
+#if 0
+    case '|':   /* branch reset: (?|...) */
+      if (IS_SYNTAX_OP2(env->syntax, ONIG_SYN_OP2_QMARK_BAR_BRANCH_RESET)) {
+	/* TODO */
+      }
+      else
+	return ONIGERR_UNDEFINED_GROUP_OPTION;
+      break;
+#endif
+
     case '^':   /* loads default options */
       if (IS_SYNTAX_OP2(env->syntax, ONIG_SYN_OP2_OPTION_PERL)) {
 	/* d-imsx */
@@ -4960,10 +5032,29 @@ parse_enclose(Node** np, OnigToken* tok, int term, UChar** src, UChar* end,
       r = scan_env_set_mem_node(env, NENCLOSE(*np)->regnum, *np);
       if (r != 0) return r;
     }
+    else if (NENCLOSE(*np)->type == ENCLOSE_CONDITION) {
+      if (NTYPE(target) != NT_ALT) {
+	/* convert (?(cond)yes) to (?(cond)yes|empty) */
+	work1 = node_new_empty();
+	if (IS_NULL(work1)) goto err;
+	work2 = onig_node_new_alt(work1, NULL_NODE);
+	if (IS_NULL(work2)) goto err;
+	work1 = onig_node_new_alt(target, work2);
+	if (IS_NULL(work1)) goto err;
+	NENCLOSE(*np)->target = work1;
+      }
+    }
   }
 
   *src = p;
   return 0;
+
+ err:
+  onig_node_free(work1);
+  onig_node_free(work2);
+  onig_node_free(*np);
+  *np = NULL;
+  return ONIGERR_MEMORY;
 }
 
 static const char* const PopularQStr[] = {
@@ -5294,8 +5385,11 @@ node_linebreak(Node** np, ScanEnv* env)
   /* ...|... */
   target1 = onig_node_new_alt(right, NULL_NODE);
   if (IS_NULL(target1)) goto err;
+  right = NULL;
   target2 = onig_node_new_alt(left, target1);
   if (IS_NULL(target2)) goto err;
+  left = NULL;
+  target1 = NULL;
 
   /* (?>...) */
   *np = node_new_enclose(ENCLOSE_STOP_BACKTRACK);
@@ -5304,10 +5398,10 @@ node_linebreak(Node** np, ScanEnv* env)
   return ONIG_NORMAL;
 
  err:
-  if (IS_NOT_NULL(left))    onig_node_free(left);
-  if (IS_NOT_NULL(right))   onig_node_free(right);
-  if (IS_NOT_NULL(target1)) onig_node_free(target1);
-  if (IS_NOT_NULL(target2)) onig_node_free(target2);
+  onig_node_free(left);
+  onig_node_free(right);
+  onig_node_free(target1);
+  onig_node_free(target2);
   return ONIGERR_MEMORY;
 }
 
@@ -5348,12 +5442,16 @@ node_extended_grapheme_cluster(Node** np, ScanEnv* env)
       qn = node_new_quantifier(0, REPEAT_INFINITE, 0);
       if (IS_NULL(qn)) goto err;
       NQTFR(qn)->target = np2;
+      np2 = NULL;
 
       /* \P{M}\p{M}* */
       list2 = node_new_list(qn, NULL_NODE);
       if (IS_NULL(list2)) goto err;
+      qn = NULL;
       list1 = node_new_list(np1, list2);
       if (IS_NULL(list1)) goto err;
+      np1 = NULL;
+      list2 = NULL;
 
       /* (?:...) */
       *np = node_new_option(env->option);
@@ -5377,11 +5475,11 @@ node_extended_grapheme_cluster(Node** np, ScanEnv* env)
   return ONIG_NORMAL;
 
  err:
-  if (IS_NOT_NULL(np1))   onig_node_free(np1);
-  if (IS_NOT_NULL(np2))   onig_node_free(np2);
-  if (IS_NOT_NULL(qn))    onig_node_free(qn);
-  if (IS_NOT_NULL(list1)) onig_node_free(list1);
-  if (IS_NOT_NULL(list2)) onig_node_free(list2);
+  onig_node_free(np1);
+  onig_node_free(np2);
+  onig_node_free(qn);
+  onig_node_free(list1);
+  onig_node_free(list2);
   return (r == 0) ? ONIGERR_MEMORY : r;
 }
 

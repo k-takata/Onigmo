@@ -115,7 +115,7 @@ typedef unsigned int uintptr_t;
 #undef ONIG_ESCAPE_UCHAR_COLLISION
 #endif
 
-#define USE_WORD_BEGIN_END        /* "\<", "\>" */
+/* #define USE_WORD_BEGIN_END */        /* "\<", "\>" */
 /* #define USE_CAPTURE_HISTORY */
 /* #define USE_VARIABLE_META_CHARS */
 /* #define USE_POSIX_API_REGION_OPTION */
@@ -573,6 +573,8 @@ enum OpCode {
   OP_CALL,                 /* \g<name> */
   OP_RETURN,
 
+  OP_CONDITION,
+
   OP_STATE_CHECK_PUSH,         /* combination explosion check and push */
   OP_STATE_CHECK_PUSH_OR_JUMP, /* check ok -> push, else jump  */
   OP_STATE_CHECK,              /* check only */
@@ -653,6 +655,7 @@ typedef void* PointerType;
 #define SIZE_OP_FAIL_LOOK_BEHIND_NOT    SIZE_OPCODE
 #define SIZE_OP_CALL                   (SIZE_OPCODE + SIZE_ABSADDR)
 #define SIZE_OP_RETURN                  SIZE_OPCODE
+#define SIZE_OP_CONDITION              (SIZE_OPCODE + SIZE_MEMNUM + SIZE_RELADDR)
 
 #ifdef USE_COMBINATION_EXPLOSION_CHECK
 #define SIZE_OP_STATE_CHECK            (SIZE_OPCODE + SIZE_STATE_CHECK_NUM)

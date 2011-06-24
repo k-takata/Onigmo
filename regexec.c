@@ -1337,9 +1337,11 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
       int len;
       fprintf(stderr, "%4d> \"", (int )(s - str));
       bp = buf;
-      for (i = 0, q = s; i < 7 && q < end; i++) {
-	len = enclen(encode, q);
-	while (len-- > 0) *bp++ = *q++;
+      if (*p != OP_FINISH) {    /* s may not be a valid pointer if OP_FINISH. */
+	for (i = 0, q = s; i < 7 && q < end; i++) {
+	  len = enclen(encode, q);
+	  while (len-- > 0) *bp++ = *q++;
+	}
       }
       if (q < end) { xmemcpy(bp, "...\"", 4); bp += 4; }
       else         { xmemcpy(bp, "\"",    1); bp += 1; }
@@ -2807,6 +2809,18 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
       break;
 #endif
 
+    case OP_CONDITION:  MOP_IN(OP_CONDITION);
+      GET_MEMNUM_INC(mem, p);
+      GET_RELADDR_INC(addr, p);
+      if ((mem > num_mem) ||
+	  (mem_end_stk[mem]   == INVALID_STACK_INDEX) ||
+	  (mem_start_stk[mem] == INVALID_STACK_INDEX)) {
+	p += addr;
+      }
+      MOP_OUT;
+      continue;
+      break;
+
     case OP_FINISH:
       goto finish;
       break;
@@ -3758,12 +3772,12 @@ onig_search_gpos(regex_t* reg, const UChar* str, const UChar* end,
             prev = s;
             s += enclen(reg->enc, s);
 
-#if 0
-            while (!ONIGENC_IS_MBC_NEWLINE(reg->enc, prev, end) && s < range) {
-              prev = s;
-              s += enclen(reg->enc, s);
+            if ((reg->anchor & ANCHOR_LOOK_BEHIND) != 0) {
+              while (!ONIGENC_IS_MBC_NEWLINE(reg->enc, prev, end) && s < range) {
+                prev = s;
+                s += enclen(reg->enc, s);
+              }
             }
-#endif
           } while (s < range);
           goto mismatch;
         }
