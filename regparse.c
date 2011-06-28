@@ -5408,7 +5408,7 @@ node_linebreak(Node** np, ScanEnv* env)
 static int
 node_extended_grapheme_cluster(Node** np, ScanEnv* env)
 {
-  /* same as (?:\P{M}\p{M}*) */
+  /* same as (?>\P{M}\p{M}*) */
   Node* np1 = NULL;
   Node* np2 = NULL;
   Node* qn = NULL;
@@ -5418,6 +5418,7 @@ node_extended_grapheme_cluster(Node** np, ScanEnv* env)
   CClassNode* cc2;
   int r = 0;
 
+#ifdef USE_UNICODE_PROPERTIES
   if (onig_strncmp((UChar* )env->enc->name, (UChar* )"UTF", 3) == 0) {
     /* UTF-8, UTF-16BE/LE, UTF-32BE/LE */
     UChar* propname = (UChar* )"M";
@@ -5453,13 +5454,14 @@ node_extended_grapheme_cluster(Node** np, ScanEnv* env)
       np1 = NULL;
       list2 = NULL;
 
-      /* (?:...) */
-      *np = node_new_option(env->option);
+      /* (?>...) */
+      *np = node_new_enclose(ENCLOSE_STOP_BACKTRACK);
       if (IS_NULL(*np)) goto err;
       NENCLOSE(*np)->target = list1;
       return ONIG_NORMAL;
     }
   }
+#endif /* USE_UNICODE_PROPERTIES */
   if (IS_NULL(*np)) {
     /* PerlSyntax: (?s:.), RubySyntax: (?m:.) */
     OnigOptionType option;
@@ -5664,6 +5666,7 @@ parse_exp(Node** np, OnigToken* tok, int term,
           r = ONIGENC_GET_CTYPE_CODE_RANGE(env->enc, tok->u.prop.ctype,
 					   &sb_out, &mbr);
           if (r == 0 &&
+              ! IS_ASCII_RANGE(env->option) &&
               ONIGENC_CODE_RANGE_NUM(mbr)
               >= THRESHOLD_RANGE_NUM_FOR_SHARE_CCLASS) {
             type_cclass_key  key;

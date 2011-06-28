@@ -1,4 +1,4 @@
-µ´±À (µ´¼Ö²þ) Àµµ¬É½¸½ Version 5.10.1    2011/06/24
+µ´±À (µ´¼Ö²þ) Àµµ¬É½¸½ Version 5.10.2    2011/06/29
 
 »ÈÍÑÊ¸Ë¡: ONIG_SYNTAX_RUBY (´ûÄêÃÍ)
 
@@ -116,7 +116,7 @@
   \X       eXtended grapheme cluster
 
            Unicode¤Î¾ì¹ç:
-             (?:\P{M}\p{M}*)
+             (?>\P{M}\p{M}*)
 
            Unicode°Ê³°¤Î¾ì¹ç:
              (?m:.)
