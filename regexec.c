@@ -327,19 +327,21 @@ onig_region_copy(OnigRegion* to, OnigRegion* from)
 #define STK_MASK_MEM_END_OR_MARK   0x8000  /* MEM_END or MEM_END_MARK */
 
 #ifdef USE_FIND_LONGEST_SEARCH_ALL_OF_RANGE
-#define MATCH_ARG_INIT(msa, arg_option, arg_region, arg_start) do {\
+#define MATCH_ARG_INIT(msa, arg_option, arg_region, arg_start, arg_gpos) do {\
   (msa).stack_p  = (void* )0;\
   (msa).options  = (arg_option);\
   (msa).region   = (arg_region);\
   (msa).start    = (arg_start);\
+  (msa).gpos     = (arg_gpos);\
   (msa).best_len = ONIG_MISMATCH;\
 } while(0)
 #else
-#define MATCH_ARG_INIT(msa, arg_option, arg_region, arg_start) do {\
+#define MATCH_ARG_INIT(msa, arg_option, arg_region, arg_start, arg_gpos) do {\
   (msa).stack_p  = (void* )0;\
   (msa).options  = (arg_option);\
   (msa).region   = (arg_region);\
   (msa).start    = (arg_start);\
+  (msa).gpos     = (arg_gpos);\
 } while(0)
 #endif
 
@@ -2063,7 +2065,7 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
       break;
 
     case OP_BEGIN_POSITION:  MOP_IN(OP_BEGIN_POSITION);
-      if (s != msa->start)
+      if (s != msa->gpos)
 	goto fail;
 
       MOP_OUT;
@@ -3078,7 +3080,7 @@ onig_match(regex_t* reg, const UChar* str, const UChar* end, const UChar* at, On
   THREAD_ATOMIC_END;
 #endif /* USE_RECOMPILE_API && USE_MULTI_THREAD_SYSTEM */
 
-  MATCH_ARG_INIT(msa, option, region, at);
+  MATCH_ARG_INIT(msa, option, region, at, at);
 #ifdef USE_COMBINATION_EXPLOSION_CHECK
   {
     int offset = at - str;
@@ -3555,7 +3557,7 @@ onig_search2(regex_t* reg, const UChar* str, const UChar* end,
       s = (UChar* )start;
       prev = (UChar* )NULL;
 
-      MATCH_ARG_INIT(msa, option, region, start);
+      MATCH_ARG_INIT(msa, option, region, start, start);
 #ifdef USE_COMBINATION_EXPLOSION_CHECK
       msa.state_check_buff = (void* )0;
       msa.state_check_buff_size = 0;   /* NO NEED, for valgrind */
@@ -3571,8 +3573,7 @@ onig_search2(regex_t* reg, const UChar* str, const UChar* end,
 	  (int )(end - str), (int )(start - str), (int )(range - str));
 #endif
 
-//  MATCH_ARG_INIT(msa, option, region, orig_start);
-  MATCH_ARG_INIT(msa, option, region, global_pos);
+  MATCH_ARG_INIT(msa, option, region, start, global_pos);
 #ifdef USE_COMBINATION_EXPLOSION_CHECK
   {
     int offset = (MIN(start, range) - str);
