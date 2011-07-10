@@ -1470,6 +1470,9 @@ compile_anchor_node(AnchorNode* node, regex_t* reg)
   case ANCHOR_SEMI_END_BUF:   r = add_opcode(reg, OP_SEMI_END_BUF);   break;
   case ANCHOR_BEGIN_POSITION: r = add_opcode(reg, OP_BEGIN_POSITION); break;
 
+  /* used for implicit anchor optimization: /.*a/ ==> /(?:^|\G).*a/ */
+  case ANCHOR_ANYCHAR_STAR:   r = add_opcode(reg, OP_BEGIN_POSITION); break;
+
   case ANCHOR_WORD_BOUND:
     if (node->ascii_range)    r = add_opcode(reg, OP_ASCII_WORD_BOUND);
     else                      r = add_opcode(reg, OP_WORD_BOUND);
@@ -3308,11 +3311,12 @@ next_setup(Node* node, Node* next_node, int in_root, regex_t* reg)
 	}
       }
 
+#ifndef ONIG_DONT_OPTIMIZE
       if (in_root && /* qn->lower == 0 && */
 	  NTYPE(qn->target) == NT_CANY &&
 	  ! IS_MULTILINE(reg->options)) {
 	/* implicit anchor: /.*a/ ==> /(?:^|\G).*a/ */
-	Node *np, *na1, *na2;
+	Node *np;
 	np = onig_node_new_list(NULL_NODE, NULL_NODE);
 	CHECK_NULL_RETURN_MEMERR(np);
 	swap_node(node, np);
@@ -3321,19 +3325,11 @@ next_setup(Node* node, Node* next_node, int in_root, regex_t* reg)
 	  onig_node_free(np);
 	  return ONIGERR_MEMORY;
 	}
-	na1 = onig_node_new_alt(NULL_NODE, NULL_NODE);
-	CHECK_NULL_RETURN_MEMERR(na1);
-	NCAR(node) = na1;
-	np = onig_node_new_anchor(ANCHOR_BEGIN_LINE);
+	np = onig_node_new_anchor(ANCHOR_ANYCHAR_STAR);   /* (?:^|\G) */
 	CHECK_NULL_RETURN_MEMERR(np);
-	NCAR(na1) = np;
-	na2 = onig_node_new_alt(NULL_NODE, NULL_NODE);
-	CHECK_NULL_RETURN_MEMERR(na2);
-	NCDR(na1) = na2;
-	np = onig_node_new_anchor(ANCHOR_BEGIN_POSITION);   /* \G */
-	CHECK_NULL_RETURN_MEMERR(np);
-	NCAR(na2) = np;
+	NCAR(node) = np;
       }
+#endif
     }
   }
   else if (type == NT_ENCLOSE) {
@@ -4968,7 +4964,7 @@ optimize_node_left(Node* node, NodeOptInfo* opt, OptEnv* env)
       r = optimize_node_left(qn->target, &nopt, env);
       if (r) break;
 
-      if (qn->lower == 0 && IS_REPEAT_INFINITE(qn->upper)) {
+      if (/*qn->lower == 0 &&*/ IS_REPEAT_INFINITE(qn->upper)) {
 	if (env->mmd.max == 0 &&
 	    NTYPE(qn->target) == NT_CANY && qn->greedy) {
 	  if (IS_MULTILINE(env->options))
@@ -5164,7 +5160,8 @@ set_optimize_info_from_tree(Node* node, regex_t* reg, ScanEnv* scan_env)
   if (r) return r;
 
   reg->anchor = opt.anc.left_anchor & (ANCHOR_BEGIN_BUF |
-        ANCHOR_BEGIN_POSITION | ANCHOR_ANYCHAR_STAR | ANCHOR_ANYCHAR_STAR_ML);
+        ANCHOR_BEGIN_POSITION | ANCHOR_ANYCHAR_STAR | ANCHOR_ANYCHAR_STAR_ML |
+        ANCHOR_LOOK_BEHIND);
 
   reg->anchor |= opt.anc.right_anchor & (ANCHOR_END_BUF | ANCHOR_SEMI_END_BUF);
 
@@ -5310,7 +5307,7 @@ print_anchor(FILE* f, int anchor)
   }
   if (anchor & ANCHOR_ANYCHAR_STAR_ML) {
     if (q) fprintf(f, ", ");
-    fprintf(f, "anychar-star-pl");
+    fprintf(f, "anychar-star-ml");
   }
 
   fprintf(f, "]");
