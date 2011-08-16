@@ -3574,18 +3574,34 @@ fetch_token(OnigToken* tok, UChar** src, UChar* end, ScanEnv* env)
       if (IS_SYNTAX_OP2(syn, ONIG_SYN_OP2_ESC_G_SUBEXP_CALL)) {
 	PFETCH(c);
 	if (c == '<' || c == '\'') {
-	  int gnum;
+	  int gnum = -1, rel = 0;
 	  UChar* name_end;
+	  OnigCodePoint cnext;
 
+	  cnext = PPEEK;
+	  if (cnext == '0') {
+	    PINC;
+	    if (PPEEK_IS(get_name_end_code_point(c))) {  // \g<0>, \g'0'
+	      PINC;
+	      name_end = p;
+	      gnum = 0;
+	    }
+	  }
+	  else if (cnext == '+') {
+	    PINC;
+	    rel = 1;
+	  }
 	  prev = p;
-	  r = fetch_name((OnigCodePoint )c, &p, end, &name_end, env, &gnum, 1);
-	  if (r < 0) return r;
+	  if (gnum < 0) {
+	    r = fetch_name((OnigCodePoint )c, &p, end, &name_end, env, &gnum, 1);
+	    if (r < 0) return r;
+	  }
 
 	  tok->type = TK_CALL;
 	  tok->u.call.name     = prev;
 	  tok->u.call.name_end = name_end;
 	  tok->u.call.gnum     = gnum;
-	  tok->u.call.rel      = 0;
+	  tok->u.call.rel      = rel;
 	}
 	else
 	  PUNFETCH;
@@ -4727,10 +4743,10 @@ parse_enclose(Node** np, OnigToken* tok, int term, UChar** src, UChar* end,
     case '=':
       *np = onig_node_new_anchor(ANCHOR_PREC_READ);
       break;
-    case '!':  /*         preceding read */
+    case '!':   /* preceding read */
       *np = onig_node_new_anchor(ANCHOR_PREC_READ_NOT);
       break;
-    case '>':            /* (?>...) stop backtrack */
+    case '>':   /* (?>...) stop backtrack */
       *np = node_new_enclose(ENCLOSE_STOP_BACKTRACK);
       break;
 
@@ -4956,14 +4972,26 @@ parse_enclose(Node** np, OnigToken* tok, int term, UChar** src, UChar* end,
 #endif
 
 	  case 'a':     /* limits \d, \s, \w and POSIX brackets to ASCII range */
-	    if (IS_SYNTAX_OP2(env->syntax, ONIG_SYN_OP2_OPTION_PERL) && (neg == 0)) {
+	    if ((IS_SYNTAX_OP2(env->syntax, ONIG_SYN_OP2_OPTION_PERL) ||
+	         IS_SYNTAX_OP2(env->syntax, ONIG_SYN_OP2_OPTION_RUBY)) &&
+	        (neg == 0)) {
 	      ONOFF(option, ONIG_OPTION_ASCII_RANGE, 0);
 	    }
 	    else
 	      return ONIGERR_UNDEFINED_GROUP_OPTION;
 	    break;
 
-	  case 'd': case 'l': case 'u':
+	  case 'u':
+	    if ((IS_SYNTAX_OP2(env->syntax, ONIG_SYN_OP2_OPTION_PERL) ||
+	         IS_SYNTAX_OP2(env->syntax, ONIG_SYN_OP2_OPTION_RUBY)) &&
+	        (neg == 0)) {
+	      ONOFF(option, ONIG_OPTION_ASCII_RANGE, 1);
+	    }
+	    else
+	      return ONIGERR_UNDEFINED_GROUP_OPTION;
+	    break;
+
+	  case 'd': case 'l':
 	    if (IS_SYNTAX_OP2(env->syntax, ONIG_SYN_OP2_OPTION_PERL) && (neg == 0)) {
 	      ONOFF(option, ONIG_OPTION_ASCII_RANGE, 1);
 	    }
@@ -5504,10 +5532,10 @@ parse_exp(Node** np, OnigToken* tok, int term,
   switch (tok->type) {
   case TK_ALT:
   case TK_EOT:
-  end_of_token:
-  *np = node_new_empty();
-  return tok->type;
-  break;
+    end_of_token:
+    *np = node_new_empty();
+    return tok->type;
+    break;
 
   case TK_SUBEXP_OPEN:
     r = parse_enclose(np, tok, TK_SUBEXP_CLOSE, src, end, env);

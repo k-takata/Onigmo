@@ -1,5 +1,31 @@
 History of Onigmo (Oniguruma-mod)
 
+2011/08/09: Version 5.10.6
+
+2011/08/09: [dist] a .def file can be used to export APIs.
+2011/08/08: [dist] update win32/Makefile to support LTCG optimization.
+2011/08/07: [new]  add new test scripts: testpy.py and onig.py
+2011/08/07: [new]  add a new syntax: ONIG_SYNTAX_PYTHON
+
+2011/08/03: Version 5.10.5
+
+2011/08/03: [dist] update win32/Makefile.
+2011/08/03: [dist] update tests to support ONIG_OPTION_ASCII_RANGE option.
+2011/07/30: [new]  EUC-JP: support for JIS X 0212 (Supplemental Kanji).
+2011/07/30: [impl] not to use ONIG_ENCODING_SJIS inside ONIG_ENCODING_CP932.
+2011/07/29: [new]  Add support for EUC-JIS-2004.
+                   (This feature is not enabled by default.)
+2011/07/29: [impl] EUC-JP: check the length more strictly.
+2011/07/29: [dist] translate Japanese comments to English.
+2011/07/29: [bug]  \p{Katakana} doesn't match JIS X 0201 Katakana when EUC-JP
+                   is used.
+2011/07/28: [dist] change the encoding of Japanese documents to UTF-8.
+2011/07/26: [bug]  [^x]*x causes invalid pointer access.
+2011/07/19: [spec] allow (?au) in Ruby syntax mode.
+2011/07/16: [new]  add \g<0> and \g<+n>.
+
+2011/07/11: Version 5.10.4
+
 2011/07/11: [dist] update autotools.
                    use automake 1.10.3, autoconf 2.68 and libtool 2.4.
 2011/07/11: [impl] add typedefs of intptr_t/uintptr_t for old VC++ compilers.
