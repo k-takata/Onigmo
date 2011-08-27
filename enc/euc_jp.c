@@ -223,15 +223,15 @@ apply_all_case_fold(OnigCaseFoldType flag,
 static OnigCodePoint
 get_lower_case(OnigCodePoint code)
 {
-  if (0xa3c1 <= code && code <= 0xa3da) {
+  if (ONIGENC_IS_IN_RANGE(code, 0xa3c1, 0xa3da)) {
     /* Fullwidth Alphabet */
     return (OnigCodePoint )(code + 0x0020);
   }
-  else if (0xa6a1 <= code && code <= 0xa6b8) {
+  else if (ONIGENC_IS_IN_RANGE(code, 0xa6a1, 0xa6b8)) {
     /* Greek */
     return (OnigCodePoint )(code + 0x0020);
   }
-  else if (0xa7a1 <= code && code <= 0xa7c1) {
+  else if (ONIGENC_IS_IN_RANGE(code, 0xa7a1, 0xa7c1)) {
     /* Cyrillic */
     return (OnigCodePoint )(code + 0x0030);
   }
@@ -241,15 +241,15 @@ get_lower_case(OnigCodePoint code)
 static OnigCodePoint
 get_upper_case(OnigCodePoint code)
 {
-  if (0xa3e1 <= code && code <= 0xa3fa) {
+  if (ONIGENC_IS_IN_RANGE(code, 0xa3e1, 0xa3fa)) {
     /* Fullwidth Alphabet */
     return (OnigCodePoint )(code - 0x0020);
   }
-  else if (0xa6c1 <= code && code <= 0xa6d8) {
+  else if (ONIGENC_IS_IN_RANGE(code, 0xa6c1, 0xa6d8)) {
     /* Greek */
     return (OnigCodePoint )(code - 0x0020);
   }
-  else if (0xa7d1 <= code && code <= 0xa7f1) {
+  else if (ONIGENC_IS_IN_RANGE(code, 0xa7d1, 0xa7f1)) {
     /* Cyrillic */
     return (OnigCodePoint )(code - 0x0030);
   }

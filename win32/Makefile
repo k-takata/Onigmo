@@ -19,11 +19,18 @@ ARDLL = cl
 ARDLL_FLAGS = -nologo -LD $(LINKFLAGS) -dll
 LINKFLAGS = -link -incremental:no -pdb:none
 
+INSTALL = install -c
+CP      = copy
+CC = cl
+RC = rc
+DEFS = -DHAVE_CONFIG_H -DNOT_RUBY -DEXPORT
+RUBYDIR = ..
+PYTHON = python
+
 !if DEFINED(USE_LTCG) && $(USE_LTCG)
-# Use LTCG (Link Time Code Generation)
-# Check the version of nmake.exe instead of cl.exe, because we can't check it
-# directly. Nmake can't compare strings, so we use cmd.exe's "if" command.
-!if [if "$(_NMAKE_VER)" GEQ "7.00" exit 1]
+# Use LTCG (Link Time Code Generation).
+# Check if cl.exe is newer than VC++ 7.0 (_MSC_VER >= 1300).
+!if [(echo _MSC_VER>mscver.c) && for /f %i in ('cmd /c "$(CC) /EP mscver.c 2>nul"') do @(del mscver.c && if %i GEQ 1300 exit 1)]
 CFLAGS = $(CFLAGS) -GL
 ARLIB_FLAGS = $(ARLIB_FLAGS) -LTCG
 ARDLL_FLAGS = $(ARDLL_FLAGS) -LTCG
@@ -35,13 +42,6 @@ ARDLL_FLAGS = $(ARDLL_FLAGS) -LTCG
 CFLAGS = $(CFLAGS) /DONIG_EXTERN=extern
 ARDLL_FLAGS = $(ARDLL_FLAGS) -def:$(DEFFILE)
 !endif
-
-INSTALL = install -c
-CP      = copy
-CC = cl
-DEFS = -DHAVE_CONFIG_H -DNOT_RUBY -DEXPORT
-RUBYDIR = ..
-PYTHON = python
 
 subdirs = 
 
@@ -80,6 +80,8 @@ encobjs      =  $(encdir)\ascii.obj $(encdir)\utf8.obj \
 		$(encdir)\koi8_r.obj  \
 		$(encdir)\cp1251.obj # $(encdir)\koi8.obj
 
+resobj       = win32\onig.res
+
 onigsources  = regerror.c regparse.c regext.c regcomp.c regexec.c regenc.c \
 	       regsyntax.c regtrav.c regversion.c reggnu.c st.c
 posixsources = regposix.c regposerr.c
@@ -99,10 +101,13 @@ testp        = testp
 makeargs = $(MFLAGS) CPPFLAGS='$(CPPFLAGS)' CFLAGS='$(CFLAGS)' CC='$(CC)'
 
 .SUFFIXES:
-.SUFFIXES: .obj .c .h .ps .dvi .info .texinfo
+.SUFFIXES: .obj .c .h .ps .dvi .info .texinfo .res .rc
 
 .c.obj:
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(DEFS) /I. /I.. /Fo$@ /c $<
+
+.rc.res:
+	$(RC) /Fo$@ $<
 
 # targets
 default: all
@@ -117,8 +122,8 @@ all: $(libname) $(dllname)
 $(libname): $(libobjs) $(encobjs)
 	$(ARLIB) $(ARLIB_FLAGS) -out:$@ $(libobjs) $(encobjs)
 
-$(dllname): $(libobjs) $(encobjs) $(DEFFILE)
-	$(ARDLL) $(libobjs) $(encobjs) -Fe$@ $(ARDLL_FLAGS)
+$(dllname): $(libobjs) $(encobjs) $(resobj) $(DEFFILE)
+	$(ARDLL) $(libobjs) $(encobjs) $(resobj) -Fe$@ $(ARDLL_FLAGS)
 
 regparse.obj:  regparse.c $(onigheaders) config.h st.h
 regext.obj:    regext.c   $(onigheaders) config.h
@@ -167,6 +172,8 @@ $(encdir)\cp1251.obj:     $(encdir)\cp1251.c regenc.h config.h
 $(encdir)\big5.obj:       $(encdir)\big5.c   regenc.h config.h
 $(encdir)\gb18030.obj:    $(encdir)\gb18030.c   regenc.h config.h
 
+win32\onig.res: win32\onig.rc
+
 
 # Ruby test
 rtest:
@@ -196,7 +203,7 @@ $(libbase).def: win32\makedef.py oniguruma.h regenc.h oniggnu.h onigposix.h
 	$(PYTHON) win32\makedef.py > $@
 
 clean:
-	del *.obj $(encdir)\*.obj *.lib *.exp *.dll $(testp).exe $(testc).exe $(testc).obj $(testcu).exe $(testcu).obj
+	del *.obj $(encdir)\*.obj *.lib *.exp *.dll $(testp).exe $(testc).exe $(testc).obj $(testcu).exe $(testcu).obj win32\*.res
 
 
 # backup file suffix
