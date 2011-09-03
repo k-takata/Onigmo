@@ -37,8 +37,8 @@ class OnigRegion(ctypes.Structure):
     _fields_ = [
         ("allocated",   ctypes.c_int),
         ("num_regs",    ctypes.c_int),
-        ("beg",         ctypes.POINTER(ctypes.c_int)),
-        ("end",         ctypes.POINTER(ctypes.c_int)),
+        ("beg",         ctypes.POINTER(ctypes.c_ssize_t)),
+        ("end",         ctypes.POINTER(ctypes.c_ssize_t)),
         ("history_root",ctypes.c_void_p),
     ]
 re_registers = OnigRegion
@@ -173,6 +173,10 @@ try:
 except ValueError:
     pass
 ONIG_SYNTAX_RUBY            = _load_syntax("OnigSyntaxRuby")
+try:
+    ONIG_SYNTAX_PYTHON      = _load_syntax("OnigSyntaxPython")
+except ValueError:
+    pass
 
 ONIG_SYNTAX_DEFAULT         = ctypes.POINTER(OnigSyntaxType).in_dll(
                                     libonig, "OnigDefaultSyntax")
@@ -260,6 +264,7 @@ onig_free = libonig.onig_free
 libonig.onig_search.argtypes = [OnigRegex,
         ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,
         ctypes.POINTER(OnigRegion), OnigOptionType]
+libonig.onig_search.restype = ctypes.c_ssize_t
 onig_search = libonig.onig_search
 
 # onig_search_gpos
@@ -268,6 +273,7 @@ onig_search = libonig.onig_search
 libonig.onig_match.argtypes = [OnigRegex,
         ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,
         ctypes.POINTER(OnigRegion), OnigOptionType]
+libonig.onig_match.restype = ctypes.c_ssize_t
 onig_match = libonig.onig_match
 
 # onig_region_new
