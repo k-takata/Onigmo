@@ -2842,10 +2842,10 @@ CLOSE_BRACKET_WITHOUT_ESC_WARN(ScanEnv* env, UChar* c)
 {
   if (onig_warn == onig_null_warn) return ;
 
-  if (IS_SYNTAX_BV((env)->syntax, ONIG_SYN_WARN_CC_OP_NOT_ESCAPED)) {
+  if (IS_SYNTAX_BV(env->syntax, ONIG_SYN_WARN_CC_OP_NOT_ESCAPED)) {
     UChar buf[WARN_BUFSIZE];
-    onig_snprintf_with_pattern(buf, WARN_BUFSIZE, (env)->enc,
-		(env)->pattern, (env)->pattern_end,
+    onig_snprintf_with_pattern(buf, WARN_BUFSIZE, env->enc,
+		env->pattern, env->pattern_end,
 		(UChar* )"regular expression has '%s' without escape", c);
     (*onig_warn)((char* )buf);
   }
@@ -3941,8 +3941,7 @@ add_ctype_to_cc_by_range(CClassNode* cc, int ctype ARG_UNUSED, int not,
       for (j  = ONIGENC_CODE_RANGE_FROM(mbr, i);
            j <= ONIGENC_CODE_RANGE_TO(mbr, i); j++) {
 	if (j >= sb_out) {
-	  if (j == ONIGENC_CODE_RANGE_TO(mbr, i)) i++;
-	  else if (j > ONIGENC_CODE_RANGE_FROM(mbr, i)) {
+	  if (j > ONIGENC_CODE_RANGE_FROM(mbr, i)) {
 	    r = add_code_range_to_buf(&(cc->mbuf), j,
 				      ONIGENC_CODE_RANGE_TO(mbr, i));
 	    if (r != 0) return r;
@@ -4010,20 +4009,26 @@ add_ctype_to_cc(CClassNode* cc, int ctype, int not, int char_prop, ScanEnv* env)
   OnigEncoding enc = env->enc;
   OnigOptionType option = env->option;
 
+  ascii_range = IS_ASCII_RANGE(option) && (char_prop == 0);
+
   r = ONIGENC_GET_CTYPE_CODE_RANGE(enc, ctype, &sb_out, &ranges);
   if (r == 0) {
     r = add_ctype_to_cc_by_range(cc, ctype, not, env->enc, sb_out, ranges);
-    if ((r == 0) && (char_prop == 0) && IS_ASCII_RANGE(option)) {
+    if ((r == 0) && ascii_range) {
       if (not != 0) {
 	r = add_code_range_to_buf(&(cc->mbuf), 0x80, ~((OnigCodePoint )0));
       }
       else {
 	CClassNode ccascii;
 	initialize_cclass(&ccascii);
-	add_code_range(&(ccascii.mbuf), env, 0x00, 0x7F);
-	bitset_set_range(ccascii.bs, 0x00, 0x7F);
+	if (ONIGENC_MBC_MINLEN(env->enc) > 1) {
+	  add_code_range(&(ccascii.mbuf), env, 0x00, 0x7F);
+	}
+	else {
+	  bitset_set_range(ccascii.bs, 0x00, 0x7F);
+	}
 	r = and_cclass(cc, &ccascii, enc);
-	bbuf_free(ccascii.mbuf);
+	if (IS_NOT_NULL(ccascii.mbuf)) bbuf_free(ccascii.mbuf);
       }
     }
     return r;
@@ -4032,7 +4037,6 @@ add_ctype_to_cc(CClassNode* cc, int ctype, int not, int char_prop, ScanEnv* env)
     return r;
   }
 
-  ascii_range = IS_ASCII_RANGE(option) && (char_prop == 0);
   maxcode = ascii_range ? 0x80 : SINGLE_BYTE_SIZE;
   r = 0;
   switch (ctype) {
@@ -4420,8 +4424,8 @@ parse_char_class(Node** np, OnigToken* tok, UChar** src, UChar* end,
     fetched = 0;
     switch (r) {
     case TK_CHAR:
-      len = ONIGENC_CODE_TO_MBCLEN(env->enc, tok->u.c);
-      if (len > 1) {
+      if ((tok->u.code >= SINGLE_BYTE_SIZE) ||
+         (len = ONIGENC_CODE_TO_MBCLEN(env->enc, tok->u.c)) > 1) {
 	in_type = CCV_CODE_POINT;
       }
       else if (len < 0) {
@@ -4602,12 +4606,11 @@ parse_char_class(Node** np, OnigToken* tok, UChar** src, UChar* end,
 	CClassNode* acc;
 
 	r = parse_char_class(&anode, tok, &p, end, env);
-	if (r != 0) goto cc_open_err;
-	acc = NCCLASS(anode);
-	r = or_cclass(cc, acc, env->enc);
-
+	if (r == 0) {
+	  acc = NCCLASS(anode);
+	  r = or_cclass(cc, acc, env->enc);
+	}
 	onig_node_free(anode);
-      cc_open_err:
 	if (r != 0) goto err;
       }
       break;
@@ -5403,8 +5406,12 @@ node_linebreak(Node** np, ScanEnv* env)
   right = node_new_cclass();
   if (IS_NULL(right)) goto err;
   cc = NCCLASS(right);
-  add_code_range(&(cc->mbuf), env, 0x0A, 0x0D);
-  bitset_set_range(cc->bs, 0x0A, 0x0D);
+  if (ONIGENC_MBC_MINLEN(env->enc) > 1) {
+    add_code_range(&(cc->mbuf), env, 0x0A, 0x0D);
+  }
+  else {
+    bitset_set_range(cc->bs, 0x0A, 0x0D);
+  }
 
 #ifdef USE_UNICODE_ALL_LINE_TERMINATORS
   if (onig_strncmp((UChar* )env->enc->name, (UChar* )"UTF", 3) == 0) {
@@ -5516,6 +5523,68 @@ node_extended_grapheme_cluster(Node** np, ScanEnv* env)
   onig_node_free(list2);
   return (r == 0) ? ONIGERR_MEMORY : r;
 }
+
+static int
+countbits(unsigned int bits) {
+  bits = (bits & 0x55555555) + ((bits >> 1) & 0x55555555);
+  bits = (bits & 0x33333333) + ((bits >> 2) & 0x33333333);
+  bits = (bits & 0x0f0f0f0f) + ((bits >> 4) & 0x0f0f0f0f);
+  bits = (bits & 0x00ff00ff) + ((bits >> 8) & 0x00ff00ff);
+  return (bits & 0x0000ffff) + ((bits >>16) & 0x0000ffff);
+}
+
+static int
+is_onechar_cclass(CClassNode* cc, OnigCodePoint* code)
+{
+  OnigCodePoint c;
+  int found = 0;
+  int i, j = -1;
+  Bits b1, b2;
+  BBuf *bbuf = cc->mbuf;
+
+  if (IS_NCCLASS_NOT(cc)) return 0;
+
+  /* check bbuf */
+  if (IS_NOT_NULL(bbuf)) {
+    OnigCodePoint n, *data;
+    GET_CODE_POINT(n, bbuf->p);
+    data = (OnigCodePoint* )(bbuf->p) + 1;
+    if ((n == 1) && (data[0] == data[1])) {
+      /* only one char found in the bbuf, save the code point. */
+      found = 1;
+      c = data[0];
+    }
+    else {
+      return 0;  /* the bbuf contains multiple chars */
+    }
+  }
+
+  if (found && (c < SINGLE_BYTE_SIZE) && BITSET_AT(cc->bs, c)) {
+    /* c is included in the bitset, ignore the result of bbuf. */
+    found = 0;
+  }
+
+  /* check bitset */
+  for (i = 0; i < (int )BITSET_SIZE; i++) {
+    b1 = cc->bs[i];
+    if (b1 != 0) {
+      if (((b1 & (b1 - 1)) == 0) && (found == 0)) {
+        found = 1;
+        j = i;
+        b2 = b1;
+      } else {
+        return 0;  /* the character class contains multiple chars */
+      }
+    }
+  }
+  if (j >= 0) {
+    /* only one char found in the bitset, calculate the code point. */
+    c = BITS_IN_ROOM * j + (countbits(b2 - 1) & 0x1f);
+  }
+  *code = c;
+  return 1;
+}
+
 
 static int
 parse_exp(Node** np, OnigToken* tok, int term,
@@ -5645,6 +5714,7 @@ parse_exp(Node** np, OnigToken* tok, int term,
     break;
 
   case TK_CODE_POINT:
+  tk_code_point:
     {
       UChar buf[ONIGENC_CODE_TO_MBC_MAXLEN];
       int num = ONIGENC_CODE_TO_MBC(env->enc, tok->u.code, buf);
@@ -5770,11 +5840,17 @@ parse_exp(Node** np, OnigToken* tok, int term,
   case TK_CC_OPEN:
     {
       CClassNode* cc;
+      OnigCodePoint code;
 
       r = parse_char_class(np, tok, src, end, env);
       if (r != 0) return r;
 
       cc = NCCLASS(*np);
+      if (is_onechar_cclass(cc, &code)) {
+	tok->u.code = code;
+	onig_node_free(*np);
+	goto tk_code_point;
+      }
       if (IS_IGNORECASE(env->option)) {
 	IApplyCaseFoldArg iarg;
 
@@ -6033,9 +6109,9 @@ parse_regexp(Node** top, UChar** src, UChar* end, ScanEnv* env)
   r = parse_subexp(top, &tok, TK_EOT, src, end, env);
   if (r < 0) return r;
 
-#ifdef USE_PERL_SUBEXP_CALL
+#ifdef USE_SUBEXP_CALL
   if (env->num_call > 0) {
-    /* Capture the pattern itself. It is used for (?R) and (?0). */
+    /* Capture the pattern itself. It is used for (?R), (?0) and \g<0>. */
     const int num = 0;
     Node* np;
     np = node_new_enclose_memory(env->option, 0);
