@@ -74,6 +74,7 @@
 #define USE_QTFR_PEEK_NEXT
 #define USE_ST_LIBRARY
 #define USE_SHARED_CCLASS_TABLE
+#define USE_SUNDAY_QUICK_SEARCH
 
 #define INIT_MATCH_STACK_SIZE                     160
 #define DEFAULT_MATCH_STACK_LIMIT_SIZE              0 /* unlimited */
@@ -286,9 +287,11 @@ typedef unsigned int uintptr_t;
 #define ONIG_OPTIMIZE_NONE              0
 #define ONIG_OPTIMIZE_EXACT             1   /* Slow Search */
 #define ONIG_OPTIMIZE_EXACT_BM          2   /* Boyer Moore Search */
-#define ONIG_OPTIMIZE_EXACT_BM_NOT_REV  3   /* BM   (but not simple match) */
+#define ONIG_OPTIMIZE_EXACT_BM_NOT_REV  3   /* BM (applied to a multibyte string) */
 #define ONIG_OPTIMIZE_EXACT_IC          4   /* Slow Search (ignore case) */
 #define ONIG_OPTIMIZE_MAP               5   /* char map */
+#define ONIG_OPTIMIZE_EXACT_BM_IC         6 /* BM (ignore case) */
+#define ONIG_OPTIMIZE_EXACT_BM_NOT_REV_IC 7 /* BM (applied to a multibyte string) (ignore case) */
 
 /* bit status */
 typedef unsigned int  BitStatusType;
@@ -332,6 +335,7 @@ typedef unsigned int  BitStatusType;
 #define IS_NOTEOL(option)         ((option) & ONIG_OPTION_NOTEOL)
 #define IS_POSIX_REGION(option)   ((option) & ONIG_OPTION_POSIX_REGION)
 #define IS_ASCII_RANGE(option)    ((option) & ONIG_OPTION_ASCII_RANGE)
+#define IS_NEWLINE_CRLF(option)   ((option) & ONIG_OPTION_NEWLINE_CRLF)
 
 /* OP_SET_OPTION is required for these options.
 #define IS_DYNAMIC_OPTION(option) \
@@ -533,6 +537,7 @@ enum OpCode {
   OP_END_LINE,
   OP_SEMI_END_BUF,
   OP_BEGIN_POSITION,
+  OP_BEGIN_POS_OR_LINE,   /* used for implicit anchor optimization */
 
   OP_BACKREF1,
   OP_BACKREF2,

@@ -35,8 +35,44 @@
 #ifdef USE_CRNL_AS_LINE_TERMINATOR
 #define ONIGENC_IS_MBC_CRNL(enc,p,end) \
   (ONIGENC_MBC_TO_CODE(enc,p,end) == 13 && \
-   ONIGENC_IS_MBC_NEWLINE(enc,(p+enclen(enc,p)),end))
-#endif
+   ONIGENC_MBC_TO_CODE(enc,(p+enclen(enc,p)),end) == 10)
+#define ONIGENC_IS_MBC_NEWLINE_EX(enc,p,start,end,option,check_prev) \
+  is_mbc_newline_ex((enc),(p),(start),(end),(option),(check_prev))
+static int
+is_mbc_newline_ex(OnigEncoding enc, const UChar *p, const UChar *start,
+		  const UChar *end, OnigOptionType option, int check_prev)
+{
+  if (IS_NEWLINE_CRLF(option)) {
+    if (ONIGENC_MBC_TO_CODE(enc, p, end) == 0x0a) {
+      if (check_prev) {
+	const UChar *prev = onigenc_get_prev_char_head(enc, start, p);
+	if ((prev != NULL) && ONIGENC_MBC_TO_CODE(enc, prev, end) == 0x0d)
+	  return 0;
+	else
+	  return 1;
+      }
+      else
+	return 1;
+    }
+    else {
+      const UChar *pnext = p + enclen(enc, p);
+      if (pnext < end &&
+	  ONIGENC_MBC_TO_CODE(enc, p, end) == 0x0d &&
+	  ONIGENC_MBC_TO_CODE(enc, pnext, end) == 0x0a)
+	return 1;
+      if (ONIGENC_IS_MBC_NEWLINE(enc, p, end))
+	return 1;
+      return 0;
+    }
+  }
+  else {
+    return ONIGENC_IS_MBC_NEWLINE(enc, p, end);
+  }
+}
+#else /* USE_CRNL_AS_LINE_TERMINATOR */
+#define ONIGENC_IS_MBC_NEWLINE_EX(enc,p,start,end,option,check_prev) \
+  ONIGENC_IS_MBC_NEWLINE((enc), (p), (end))
+#endif /* USE_CRNL_AS_LINE_TERMINATOR */
 
 #ifdef USE_CAPTURE_HISTORY
 static void history_tree_free(OnigCaptureTreeNode* node);
@@ -1318,8 +1354,8 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
 #endif /* USE_SUBEXP_CALL */
 
 #ifdef ONIG_DEBUG_MATCH
-  fprintf(stderr, "match_at: str: %d, end: %d, start: %d, sprev: %d\n",
-	  (int )str, (int )end, (int )sstart, (int )sprev);
+  fprintf(stderr, "match_at: str: %d (%p), end: %d (%p), start: %d (%p), sprev: %d (%p)\n",
+	  (int )str, str, (int )end, end, (int )sstart, sstart, (int )sprev, sprev);
   fprintf(stderr, "size: %d, start offset: %d\n",
 	  (int )(end - str), (int )(sstart - str));
 #endif
@@ -1825,7 +1861,7 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
       DATA_ENSURE(1);
       n = enclen(encode, s);
       DATA_ENSURE(n);
-      if (ONIGENC_IS_MBC_NEWLINE(encode, s, end)) goto fail;
+      if (ONIGENC_IS_MBC_NEWLINE_EX(encode, s, str, end, option, 0)) goto fail;
       s += n;
       MOP_OUT;
       break;
@@ -1843,7 +1879,7 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
 	STACK_PUSH_ALT(p, s, sprev, pkeep);
 	n = enclen(encode, s);
         DATA_ENSURE(n);
-        if (ONIGENC_IS_MBC_NEWLINE(encode, s, end))  goto fail;
+        if (ONIGENC_IS_MBC_NEWLINE_EX(encode, s, str, end, option, 0))  goto fail;
         sprev = s;
         s += n;
       }
@@ -1874,7 +1910,7 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
 	}
 	n = enclen(encode, s);
         DATA_ENSURE(n);
-        if (ONIGENC_IS_MBC_NEWLINE(encode, s, end))  goto fail;
+        if (ONIGENC_IS_MBC_NEWLINE_EX(encode, s, str, end, option, 0))  goto fail;
         sprev = s;
         s += n;
       }
@@ -1912,7 +1948,7 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
 	STACK_PUSH_ALT_WITH_STATE_CHECK(p, s, sprev, mem, pkeep);
 	n = enclen(encode, s);
         DATA_ENSURE(n);
-        if (ONIGENC_IS_MBC_NEWLINE(encode, s, end))  goto fail;
+        if (ONIGENC_IS_MBC_NEWLINE_EX(encode, s, str, end, option, 0))  goto fail;
         sprev = s;
         s += n;
       }
@@ -2110,12 +2146,18 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
       break;
 
     case OP_BEGIN_LINE:  MOP_IN(OP_BEGIN_LINE);
+    op_begin_line:
       if (ON_STR_BEGIN(s)) {
 	if (IS_NOTBOL(msa->options)) goto fail;
 	MOP_OUT;
 	continue;
       }
-      else if (ONIGENC_IS_MBC_NEWLINE(encode, sprev, end) && !ON_STR_END(s)) {
+      else if (ONIGENC_IS_MBC_NEWLINE(encode, sprev, end)
+#ifdef USE_CRNL_AS_LINE_TERMINATOR
+		&& !(IS_NEWLINE_CRLF(option)
+		     && ONIGENC_IS_MBC_CRNL(encode, sprev, end))
+#endif
+		&& !ON_STR_END(s)) {
 	MOP_OUT;
 	continue;
       }
@@ -2125,7 +2167,7 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
     case OP_END_LINE:  MOP_IN(OP_END_LINE);
       if (ON_STR_END(s)) {
 #ifndef USE_NEWLINE_AT_END_OF_STRING_HAS_EMPTY_LINE
-	if (IS_EMPTY_STR || !ONIGENC_IS_MBC_NEWLINE(encode, sprev, end)) {
+	if (IS_EMPTY_STR || !ONIGENC_IS_MBC_NEWLINE_EX(encode, sprev, str, end, option, 1)) {
 #endif
 	  if (IS_NOTEOL(msa->options)) goto fail;
 	  MOP_OUT;
@@ -2134,23 +2176,17 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
 	}
 #endif
       }
-      else if (ONIGENC_IS_MBC_NEWLINE(encode, s, end)) {
+      else if (ONIGENC_IS_MBC_NEWLINE_EX(encode, s, str, end, option, 1)) {
 	MOP_OUT;
 	continue;
       }
-#ifdef USE_CRNL_AS_LINE_TERMINATOR
-      else if (ONIGENC_IS_MBC_CRNL(encode, s, end)) {
-	MOP_OUT;
-	continue;
-      }
-#endif
       goto fail;
       break;
 
     case OP_SEMI_END_BUF:  MOP_IN(OP_SEMI_END_BUF);
       if (ON_STR_END(s)) {
 #ifndef USE_NEWLINE_AT_END_OF_STRING_HAS_EMPTY_LINE
-	if (IS_EMPTY_STR || !ONIGENC_IS_MBC_NEWLINE(encode, sprev, end)) {
+	if (IS_EMPTY_STR || !ONIGENC_IS_MBC_NEWLINE_EX(encode, sprev, str, end, option, 1)) {
 #endif
 	  if (IS_NOTEOL(msa->options)) goto fail;
 	  MOP_OUT;
@@ -2159,27 +2195,36 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
 	}
 #endif
       }
-      else if (ONIGENC_IS_MBC_NEWLINE(encode, s, end) &&
-	       ON_STR_END(s + enclen(encode, s))) {
-	MOP_OUT;
-	continue;
-      }
+      else if (ONIGENC_IS_MBC_NEWLINE_EX(encode, s, str, end, option, 1)) {
+	UChar* ss = s + enclen(encode, s);
+	if (ON_STR_END(ss)) {
+	  MOP_OUT;
+	  continue;
+	}
 #ifdef USE_CRNL_AS_LINE_TERMINATOR
-      else if (ONIGENC_IS_MBC_CRNL(encode, s, end)) {
-        UChar* ss = s + enclen(encode, s);
-	ss += enclen(encode, ss);
-        if (ON_STR_END(ss)) {
-          MOP_OUT;
-          continue;
-        }
-      }
+	else if (ss < end) {
+	  ss += enclen(encode, ss);
+	  if (ON_STR_END(ss)) {
+	    MOP_OUT;
+	    continue;
+	  }
+	}
 #endif
+      }
       goto fail;
       break;
 
     case OP_BEGIN_POSITION:  MOP_IN(OP_BEGIN_POSITION);
       if (s != msa->gpos)
 	goto fail;
+
+      MOP_OUT;
+      continue;
+      break;
+
+    case OP_BEGIN_POS_OR_LINE:  MOP_IN(OP_BEGIN_POS_OR_LINE);
+      if (s != msa->gpos)
+	goto op_begin_line;
 
       MOP_OUT;
       continue;
@@ -2458,8 +2503,8 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
 	STACK_NULL_CHECK(isnull, mem, s);
 	if (isnull) {
 #ifdef ONIG_DEBUG_MATCH
-	  fprintf(stderr, "NULL_CHECK_END: skip  id:%d, s:%d\n",
-		  (int )mem, (int )s);
+	  fprintf(stderr, "NULL_CHECK_END: skip  id:%d, s:%d (%p)\n",
+		  (int )mem, (int )s, s);
 #endif
 	null_check_found:
 	  /* empty loop founded, skip next instruction */
@@ -2493,8 +2538,8 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
 	STACK_NULL_CHECK_MEMST(isnull, mem, s, reg);
 	if (isnull) {
 #ifdef ONIG_DEBUG_MATCH
-	  fprintf(stderr, "NULL_CHECK_END_MEMST: skip  id:%d, s:%d\n",
-		  (int )mem, (int )s);
+	  fprintf(stderr, "NULL_CHECK_END_MEMST: skip  id:%d, s:%d (%p)\n",
+		  (int )mem, (int )s, s);
 #endif
 	  if (isnull == -1) goto fail;
 	  goto 	null_check_found;
@@ -2519,8 +2564,8 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
 #endif
 	if (isnull) {
 #ifdef ONIG_DEBUG_MATCH
-	  fprintf(stderr, "NULL_CHECK_END_MEMST_PUSH: skip  id:%d, s:%d\n",
-		  (int )mem, (int )s);
+	  fprintf(stderr, "NULL_CHECK_END_MEMST_PUSH: skip  id:%d, s:%d (%p)\n",
+		  (int )mem, (int )s, s);
 #endif
 	  if (isnull == -1) goto fail;
 	  goto 	null_check_found;
@@ -3014,6 +3059,8 @@ slow_search_backward_ic(OnigEncoding enc, int case_fold_flag,
   return (UChar* )NULL;
 }
 
+#ifndef USE_SUNDAY_QUICK_SEARCH
+/* Boyer-Moore-Horspool search applied to a multibyte string */
 static UChar*
 bm_search_notrev(regex_t* reg, const UChar* target, const UChar* target_end,
 		 const UChar* text, const UChar* text_end,
@@ -3024,8 +3071,8 @@ bm_search_notrev(regex_t* reg, const UChar* target, const UChar* target_end,
   ptrdiff_t skip, tlen1;
 
 #ifdef ONIG_DEBUG_SEARCH
-  fprintf(stderr, "bm_search_notrev: text: %d, text_end: %d, text_range: %d\n",
-	  (int )text, (int )text_end, (int )text_range);
+  fprintf(stderr, "bm_search_notrev: text: %d (%p), text_end: %d (%p), text_range: %d (%p)\n",
+	  (int )text, text, (int )text_end, text_end, (int )text_range, text_range);
 #endif
 
   tail = target_end - 1;
@@ -3070,6 +3117,7 @@ bm_search_notrev(regex_t* reg, const UChar* target, const UChar* target_end,
   return (UChar* )NULL;
 }
 
+/* Boyer-Moore-Horspool search */
 static UChar*
 bm_search(regex_t* reg, const UChar* target, const UChar* target_end,
 	  const UChar* text, const UChar* text_end, const UChar* text_range)
@@ -3107,6 +3155,314 @@ bm_search(regex_t* reg, const UChar* target, const UChar* target_end,
   }
   return (UChar* )NULL;
 }
+
+/* Boyer-Moore-Horspool search applied to a multibyte string (ignore case) */
+static UChar*
+bm_search_notrev_ic(regex_t* reg, const UChar* target, const UChar* target_end,
+		    const UChar* text, const UChar* text_end,
+		    const UChar* text_range)
+{
+  const UChar *s, *se, *t, *end;
+  const UChar *tail;
+  ptrdiff_t skip, tlen1;
+  OnigEncoding enc = reg->enc;
+  int case_fold_flag = reg->case_fold_flag;
+
+#ifdef ONIG_DEBUG_SEARCH
+  fprintf(stderr, "bm_search_notrev_ic: text: %d (%p), text_end: %d (%p), text_range: %d (%p)\n",
+	  (int )text, text, (int )text_end, text_end, (int )text_range, text_range);
+#endif
+
+  tail = target_end - 1;
+  tlen1 = tail - target;
+  end = text_range;
+  if (end + tlen1 > text_end)
+    end = text_end - tlen1;
+
+  s = text;
+
+  if (IS_NULL(reg->int_map)) {
+    while (s < end) {
+      se = s + tlen1;
+      if (str_lower_case_match(enc, case_fold_flag, target, target_end,
+			       s, se + 1))
+	return (UChar* )s;
+      skip = reg->map[*se];
+      t = s;
+      do {
+        s += enclen(reg->enc, s);
+      } while ((s - t) < skip && s < end);
+    }
+  }
+  else {
+    while (s < end) {
+      se = s + tlen1;
+      if (str_lower_case_match(enc, case_fold_flag, target, target_end,
+			       s, se + 1))
+	return (UChar* )s;
+      skip = reg->int_map[*se];
+      t = s;
+      do {
+        s += enclen(reg->enc, s);
+      } while ((s - t) < skip && s < end);
+    }
+  }
+
+  return (UChar* )NULL;
+}
+
+/* Boyer-Moore-Horspool search (ignore case) */
+static UChar*
+bm_search_ic(regex_t* reg, const UChar* target, const UChar* target_end,
+	     const UChar* text, const UChar* text_end, const UChar* text_range)
+{
+  const UChar *s, *p, *end;
+  const UChar *tail;
+  OnigEncoding enc = reg->enc;
+  int case_fold_flag = reg->case_fold_flag;
+
+#ifdef ONIG_DEBUG_SEARCH
+  fprintf(stderr, "bm_search_ic: text: %d (%p), text_end: %d (%p), text_range: %d (%p)\n",
+	  (int )text, text, (int )text_end, text_end, (int )text_range, text_range);
+#endif
+
+  end = text_range + (target_end - target) - 1;
+  if (end > text_end)
+    end = text_end;
+
+  tail = target_end - 1;
+  s = text + (target_end - target) - 1;
+  if (IS_NULL(reg->int_map)) {
+    while (s < end) {
+      p = s - (target_end - target) + 1;
+      if (str_lower_case_match(enc, case_fold_flag, target, target_end,
+			       p, s + 1))
+	return (UChar* )p;
+      s += reg->map[*s];
+    }
+  }
+  else { /* see int_map[] */
+    while (s < end) {
+      p = s - (target_end - target) + 1;
+      if (str_lower_case_match(enc, case_fold_flag, target, target_end,
+			       p, s + 1))
+	return (UChar* )p;
+      s += reg->int_map[*s];
+    }
+  }
+  return (UChar* )NULL;
+}
+
+#else /* USE_SUNDAY_QUICK_SEARCH */
+
+/* Sunday's quick search applied to a multibyte string */
+static UChar*
+bm_search_notrev(regex_t* reg, const UChar* target, const UChar* target_end,
+		 const UChar* text, const UChar* text_end,
+		 const UChar* text_range)
+{
+  const UChar *s, *se, *t, *p, *end;
+  const UChar *tail;
+  ptrdiff_t skip, tlen1;
+  OnigEncoding enc = reg->enc;
+  int (*mbc_enc_len)(const OnigUChar* p) = enc->mbc_enc_len;
+
+#ifdef ONIG_DEBUG_SEARCH
+  fprintf(stderr, "bm_search_notrev: text: %d (%p), text_end: %d (%p), text_range: %d (%p)\n",
+	  (int )text, text, (int )text_end, text_end, (int )text_range, text_range);
+#endif
+
+  tail = target_end - 1;
+  tlen1 = tail - target;
+  end = text_range;
+  if (end + tlen1 > text_end)
+    end = text_end - tlen1;
+
+  s = text;
+
+  if (IS_NULL(reg->int_map)) {
+    while (s < end) {
+      p = se = s + tlen1;
+      t = tail;
+      while (*p == *t) {
+	if (t == target) return (UChar* )s;
+	p--; t--;
+      }
+      if (s + 1 >= end) break;
+      skip = reg->map[se[1]];
+      t = s;
+      do {
+        s += mbc_enc_len(s);
+      } while ((s - t) < skip && s < end);
+    }
+  }
+  else {
+    while (s < end) {
+      p = se = s + tlen1;
+      t = tail;
+      while (*p == *t) {
+	if (t == target) return (UChar* )s;
+	p--; t--;
+      }
+      if (s + 1 >= end) break;
+      skip = reg->int_map[se[1]];
+      t = s;
+      do {
+        s += mbc_enc_len(s);
+      } while ((s - t) < skip && s < end);
+    }
+  }
+
+  return (UChar* )NULL;
+}
+
+/* Sunday's quick search */
+static UChar*
+bm_search(regex_t* reg, const UChar* target, const UChar* target_end,
+	  const UChar* text, const UChar* text_end, const UChar* text_range)
+{
+  const UChar *s, *t, *p, *end;
+  const UChar *tail;
+  ptrdiff_t tlen1;
+
+  tail = target_end - 1;
+  tlen1 = tail - target;
+  end = text_range + tlen1;
+  if (end > text_end)
+    end = text_end;
+
+  s = text + tlen1;
+  if (IS_NULL(reg->int_map)) {
+    while (s < end) {
+      p = s;
+      t = tail;
+      while (*p == *t) {
+	if (t == target) return (UChar* )p;
+	p--; t--;
+      }
+      if (s + 1 >= end) break;
+      s += reg->map[s[1]];
+    }
+  }
+  else { /* see int_map[] */
+    while (s < end) {
+      p = s;
+      t = tail;
+      while (*p == *t) {
+	if (t == target) return (UChar* )p;
+	p--; t--;
+      }
+      if (s + 1 >= end) break;
+      s += reg->int_map[s[1]];
+    }
+  }
+  return (UChar* )NULL;
+}
+
+/* Sunday's quick search applied to a multibyte string (ignore case) */
+static UChar*
+bm_search_notrev_ic(regex_t* reg, const UChar* target, const UChar* target_end,
+		    const UChar* text, const UChar* text_end,
+		    const UChar* text_range)
+{
+  const UChar *s, *se, *t, *end;
+  const UChar *tail;
+  ptrdiff_t skip, tlen1;
+  OnigEncoding enc = reg->enc;
+  int (*mbc_enc_len)(const OnigUChar* p) = enc->mbc_enc_len;
+  int case_fold_flag = reg->case_fold_flag;
+
+#ifdef ONIG_DEBUG_SEARCH
+  fprintf(stderr, "bm_search_notrev_ic: text: %d (%p), text_end: %d (%p), text_range: %d (%p)\n",
+	  (int )text, text, (int )text_end, text_end, (int )text_range, text_range);
+#endif
+
+  tail = target_end - 1;
+  tlen1 = tail - target;
+  end = text_range;
+  if (end + tlen1 > text_end)
+    end = text_end - tlen1;
+
+  s = text;
+
+  if (IS_NULL(reg->int_map)) {
+    while (s < end) {
+      se = s + tlen1;
+      if (str_lower_case_match(enc, case_fold_flag, target, target_end,
+			       s, se + 1))
+	return (UChar* )s;
+      if (s + 1 >= end) break;
+      skip = reg->map[se[1]];
+      t = s;
+      do {
+        s += mbc_enc_len(s);
+      } while ((s - t) < skip && s < end);
+    }
+  }
+  else {
+    while (s < end) {
+      se = s + tlen1;
+      if (str_lower_case_match(enc, case_fold_flag, target, target_end,
+			       s, se + 1))
+	return (UChar* )s;
+      if (s + 1 >= end) break;
+      skip = reg->int_map[se[1]];
+      t = s;
+      do {
+        s += mbc_enc_len(s);
+      } while ((s - t) < skip && s < end);
+    }
+  }
+
+  return (UChar* )NULL;
+}
+
+/* Sunday's quick search (ignore case) */
+static UChar*
+bm_search_ic(regex_t* reg, const UChar* target, const UChar* target_end,
+	     const UChar* text, const UChar* text_end, const UChar* text_range)
+{
+  const UChar *s, *p, *end;
+  const UChar *tail;
+  ptrdiff_t tlen1;
+  OnigEncoding enc = reg->enc;
+  int case_fold_flag = reg->case_fold_flag;
+
+#ifdef ONIG_DEBUG_SEARCH
+  fprintf(stderr, "bm_search_ic: text: %d (%p), text_end: %d (%p), text_range: %d (%p)\n",
+	  (int )text, text, (int )text_end, text_end, (int )text_range, text_range);
+#endif
+
+  tail = target_end - 1;
+  tlen1 = tail - target;
+  end = text_range + tlen1;
+  if (end > text_end)
+    end = text_end;
+
+  s = text + tlen1;
+  if (IS_NULL(reg->int_map)) {
+    while (s < end) {
+      p = s - tlen1;
+      if (str_lower_case_match(enc, case_fold_flag, target, target_end,
+			       p, s + 1))
+	return (UChar* )p;
+      if (s + 1 >= end) break;
+      s += reg->map[s[1]];
+    }
+  }
+  else { /* see int_map[] */
+    while (s < end) {
+      p = s - tlen1;
+      if (str_lower_case_match(enc, case_fold_flag, target, target_end,
+			       p, s + 1))
+	return (UChar* )p;
+      if (s + 1 >= end) break;
+      s += reg->int_map[s[1]];
+    }
+  }
+  return (UChar* )NULL;
+}
+#endif /* USE_SUNDAY_QUICK_SEARCH */
 
 static int
 set_bm_backward_skip(UChar* s, UChar* end, OnigEncoding enc ARG_UNUSED,
@@ -3259,8 +3615,8 @@ forward_search_range(regex_t* reg, const UChar* str, const UChar* end, UChar* s,
   UChar *p, *pprev = (UChar* )NULL;
 
 #ifdef ONIG_DEBUG_SEARCH
-  fprintf(stderr, "forward_search_range: str: %d, end: %d, s: %d, range: %d\n",
-	  (int )str, (int )end, (int )s, (int )range);
+  fprintf(stderr, "forward_search_range: str: %d (%p), end: %d (%p), s: %d (%p), range: %d (%p)\n",
+	  (int )str, str, (int )end, end, (int )s, s, (int )range, range);
 #endif
 
   p = s;
@@ -3292,6 +3648,14 @@ forward_search_range(regex_t* reg, const UChar* str, const UChar* end, UChar* s,
     p = bm_search_notrev(reg, reg->exact, reg->exact_end, p, end, range);
     break;
 
+  case ONIG_OPTIMIZE_EXACT_BM_IC:
+    p = bm_search_ic(reg, reg->exact, reg->exact_end, p, end, range);
+    break;
+
+  case ONIG_OPTIMIZE_EXACT_BM_NOT_REV_IC:
+    p = bm_search_notrev_ic(reg, reg->exact, reg->exact_end, p, end, range);
+    break;
+
   case ONIG_OPTIMIZE_MAP:
     p = map_search(reg->enc, reg->map, p, range);
     break;
@@ -3313,7 +3677,7 @@ forward_search_range(regex_t* reg, const UChar* str, const UChar* end, UChar* s,
 	if (!ON_STR_BEGIN(p)) {
 	  prev = onigenc_get_prev_char_head(reg->enc,
 					    (pprev ? pprev : str), p);
-	  if (!ONIGENC_IS_MBC_NEWLINE(reg->enc, prev, end))
+	  if (!ONIGENC_IS_MBC_NEWLINE_EX(reg->enc, prev, str, end, reg->options, 0))
 	    goto retry_gate;
 	}
 	break;
@@ -3323,15 +3687,11 @@ forward_search_range(regex_t* reg, const UChar* str, const UChar* end, UChar* s,
 #ifndef USE_NEWLINE_AT_END_OF_STRING_HAS_EMPTY_LINE
 	  prev = (UChar* )onigenc_get_prev_char_head(reg->enc,
 					    (pprev ? pprev : str), p);
-	  if (prev && ONIGENC_IS_MBC_NEWLINE(reg->enc, prev, end))
+	  if (prev && ONIGENC_IS_MBC_NEWLINE_EX(reg->enc, prev, str, end, reg->options, 1))
 	    goto retry_gate;
 #endif
 	}
-	else if (! ONIGENC_IS_MBC_NEWLINE(reg->enc, p, end)
-#ifdef USE_CRNL_AS_LINE_TERMINATOR
-              && ! ONIGENC_IS_MBC_CRNL(reg->enc, p, end)
-#endif
-                )
+	else if (! ONIGENC_IS_MBC_NEWLINE_EX(reg->enc, p, str, end, reg->options, 1))
 	  goto retry_gate;
 	break;
       }
@@ -3403,6 +3763,8 @@ backward_search_range(regex_t* reg, const UChar* str, const UChar* end,
     break;
 
   case ONIG_OPTIMIZE_EXACT_IC:
+  case ONIG_OPTIMIZE_EXACT_BM_IC:
+  case ONIG_OPTIMIZE_EXACT_BM_NOT_REV_IC:
     p = slow_search_backward_ic(reg->enc, reg->case_fold_flag,
                                 reg->exact, reg->exact_end,
                                 range, adjrange, end, p);
@@ -3435,7 +3797,7 @@ backward_search_range(regex_t* reg, const UChar* str, const UChar* end,
       case ANCHOR_BEGIN_LINE:
 	if (!ON_STR_BEGIN(p)) {
 	  prev = onigenc_get_prev_char_head(reg->enc, str, p);
-	  if (!ONIGENC_IS_MBC_NEWLINE(reg->enc, prev, end)) {
+	  if (!ONIGENC_IS_MBC_NEWLINE_EX(reg->enc, prev, str, end, reg->options, 0)) {
 	    p = prev;
 	    goto retry;
 	  }
@@ -3447,17 +3809,13 @@ backward_search_range(regex_t* reg, const UChar* str, const UChar* end,
 #ifndef USE_NEWLINE_AT_END_OF_STRING_HAS_EMPTY_LINE
 	  prev = onigenc_get_prev_char_head(reg->enc, adjrange, p);
 	  if (IS_NULL(prev)) goto fail;
-	  if (ONIGENC_IS_MBC_NEWLINE(reg->enc, prev, end)) {
+	  if (ONIGENC_IS_MBC_NEWLINE_EX(reg->enc, prev, str, end, reg->options, 1)) {
 	    p = prev;
 	    goto retry;
 	  }
 #endif
 	}
-	else if (! ONIGENC_IS_MBC_NEWLINE(reg->enc, p, end)
-#ifdef USE_CRNL_AS_LINE_TERMINATOR
-              && ! ONIGENC_IS_MBC_CRNL(reg->enc, p, end)
-#endif
-                ) {
+	else if (! ONIGENC_IS_MBC_NEWLINE_EX(reg->enc, p, str, end, reg->options, 1)) {
 	  p = onigenc_get_prev_char_head(reg->enc, adjrange, p);
 	  if (IS_NULL(p)) goto fail;
 	  goto retry;
@@ -3535,8 +3893,8 @@ onig_search_gpos(regex_t* reg, const UChar* str, const UChar* end,
 
 #ifdef ONIG_DEBUG_SEARCH
   fprintf(stderr,
-     "onig_search (entry point): str: %d, end: %d, start: %d, range: %d\n",
-     (int )str, (int )(end - str), (int )(start - str), (int )(range - str));
+     "onig_search (entry point): str: %d (%p), end: %d, start: %d, range: %d\n",
+     (int )str, str, (int )(end - str), (int )(start - str), (int )(range - str));
 #endif
 
   if (region
@@ -3668,6 +4026,7 @@ onig_search_gpos(regex_t* reg, const UChar* str, const UChar* end,
 #ifdef USE_CRNL_AS_LINE_TERMINATOR
 	pre_end = ONIGENC_STEP_BACK(reg->enc, str, pre_end, 1);
 	if (IS_NOT_NULL(pre_end) &&
+	    IS_NEWLINE_CRLF(reg->options) &&
 	    ONIGENC_IS_MBC_CRNL(reg->enc, pre_end, end)) {
 	  min_semi_end = pre_end;
 	}
@@ -3773,7 +4132,8 @@ onig_search_gpos(regex_t* reg, const UChar* str, const UChar* end,
             s += enclen(reg->enc, s);
 
             if ((reg->anchor & ANCHOR_LOOK_BEHIND) == 0) {
-              while (!ONIGENC_IS_MBC_NEWLINE(reg->enc, prev, end) && s < range) {
+              while (!ONIGENC_IS_MBC_NEWLINE_EX(reg->enc, prev, str, end, reg->options, 0)
+                     && s < range) {
                 prev = s;
                 s += enclen(reg->enc, s);
               }
