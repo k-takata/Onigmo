@@ -3,7 +3,7 @@
 **********************************************************************/
 /*-
  * Copyright (c) 2002-2008  K.Kosako  <sndgk393 AT ybb DOT ne DOT jp>
- * Copyright (c) 2011       K.Takata  <kentkt AT csc DOT jp>
+ * Copyright (c) 2011-2012  K.Takata  <kentkt AT csc DOT jp>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -3367,8 +3367,12 @@ update_string_node_case_fold(regex_t* reg, Node *node)
     q = buf;
     for (i = 0; i < len; i++) {
       if (sp >= ebuf) {
-	sbuf = (UChar* )xrealloc(sbuf, sbuf_size * 2);
-	CHECK_NULL_RETURN_MEMERR(sbuf);
+	UChar* p = (UChar* )xrealloc(sbuf, sbuf_size * 2);
+	if (IS_NULL(p)) {
+	  xfree(sbuf);
+	  return ONIGERR_MEMORY;
+	}
+	sbuf = p;
 	sp = sbuf + sbuf_size;
 	sbuf_size *= 2;
 	ebuf = sbuf + sbuf_size;
@@ -3415,17 +3419,21 @@ expand_case_fold_string_alt(int item_num, OnigCaseFoldCodeItem items[],
 			    UChar *p, int slen, UChar *end,
 			    regex_t* reg, Node **rnode)
 {
-  int r, i, j, len, varlen;
+  int r, i, j, len, varlen, varclen;
   Node *anode, *var_anode, *snode, *xnode, *an;
   UChar buf[ONIGENC_CODE_TO_MBC_MAXLEN];
 
   *rnode = var_anode = NULL_NODE;
 
   varlen = 0;
+  varclen = 0;
   for (i = 0; i < item_num; i++) {
     if (items[i].byte_len != slen) {
       varlen = 1;
       break;
+    }
+    if (items[i].code_len != 1) {
+      varclen = 1;
     }
   }
 
@@ -3511,6 +3519,8 @@ expand_case_fold_string_alt(int item_num, OnigCaseFoldCodeItem items[],
     }
   }
 
+  if (varclen && !varlen)
+    return 2;
   return varlen;
 
  mem_err2:
@@ -3528,6 +3538,7 @@ expand_case_fold_string(Node* node, regex_t* reg)
 #define THRESHOLD_CASE_FOLD_ALT_FOR_EXPANSION  8
 
   int r, n, len, alt_num;
+  int varlen = 0;
   UChar *start, *end, *p;
   Node *top_root, *root, *snode, *prev_node;
   OnigCaseFoldCodeItem items[ONIGENC_GET_CASE_FOLD_CODES_MAX_NUM];
@@ -3590,6 +3601,7 @@ expand_case_fold_string(Node* node, regex_t* reg)
 
       r = expand_case_fold_string_alt(n, items, p, len, end, reg, &prev_node);
       if (r < 0) goto mem_err;
+      if (r > 0) varlen = 1;
       if (r == 1) {
 	if (IS_NULL(root)) {
 	  top_root = prev_node;
@@ -3603,7 +3615,7 @@ expand_case_fold_string(Node* node, regex_t* reg)
 
 	root = NCAR(prev_node);
       }
-      else { /* r == 0 */
+      else { /* r == 0 || r == 2 */
 	if (IS_NOT_NULL(root)) {
 	  if (IS_NULL(onig_node_list_add(root, prev_node))) {
 	    onig_node_free(prev_node);
@@ -3646,9 +3658,20 @@ expand_case_fold_string(Node* node, regex_t* reg)
 
   /* ending */
   top_root = (IS_NOT_NULL(top_root) ? top_root : prev_node);
-  swap_node(node, top_root);
+  if (!varlen) {
+    /* When all expanded strings are same length, case-insensitive
+       BM search will be used. */
+    r = update_string_node_case_fold(reg, node);
+    if (r == 0) {
+      NSTRING_SET_AMBIG(node);
+    }
+  }
+  else {
+    swap_node(node, top_root);
+    r = 0;
+  }
   onig_node_free(top_root);
-  return 0;
+  return r;
 
  mem_err:
   r = ONIGERR_MEMORY;
@@ -3852,14 +3875,7 @@ restart:
 
   case NT_STR:
     if (IS_IGNORECASE(reg->options) && !NSTRING_IS_RAW(node)) {
-#if 0
       r = expand_case_fold_string(node, reg);
-#else
-      r = update_string_node_case_fold(reg, node);
-      if (r == 0) {
-	NSTRING_SET_AMBIG(node);
-      }
-#endif
     }
     break;
 
@@ -4141,7 +4157,7 @@ set_bm_skip(UChar* s, UChar* end, regex_t* reg,
       clen = enclen(enc, p);
 
       for (j = 0; j < n; j++) {
-	if (items[j].code_len != 1)
+	if ((items[j].code_len != 1) || (items[j].byte_len != clen))
 	  return 1;  /* different length isn't supported. */
 	flen = ONIGENC_CODE_TO_MBC(enc, items[j].code[0], buf[j]);
 	if (flen != clen)
@@ -4171,7 +4187,7 @@ set_bm_skip(UChar* s, UChar* end, regex_t* reg,
       clen = enclen(enc, p);
 
       for (j = 0; j < n; j++) {
-	if (items[j].code_len != 1)
+	if ((items[j].code_len != 1) || (items[j].byte_len != clen))
 	  return 1;  /* different length isn't supported. */
 	flen = ONIGENC_CODE_TO_MBC(enc, items[j].code[0], buf[j]);
 	if (flen != clen)
@@ -4214,7 +4230,7 @@ set_bm_skip(UChar* s, UChar* end, regex_t* reg,
       clen = enclen(enc, p);
 
       for (j = 0; j < n; j++) {
-	if (items[j].code_len != 1)
+	if ((items[j].code_len != 1) || (items[j].byte_len != clen))
 	  return 1;  /* different length isn't supported. */
 	flen = ONIGENC_CODE_TO_MBC(enc, items[j].code[0], buf[j]);
 	if (flen != clen)
@@ -4244,7 +4260,7 @@ set_bm_skip(UChar* s, UChar* end, regex_t* reg,
       clen = enclen(enc, p);
 
       for (j = 0; j < n; j++) {
-	if (items[j].code_len != 1)
+	if ((items[j].code_len != 1) || (items[j].byte_len != clen))
 	  return 1;  /* different length isn't supported. */
 	flen = ONIGENC_CODE_TO_MBC(enc, items[j].code[0], buf[j]);
 	if (flen != clen)
@@ -5228,8 +5244,9 @@ set_optimize_exact_info(regex_t* reg, OptExactInfo* e)
 
   if (e->len == 0) return 0;
 
-  reg->exact = str_dup(e->s, e->s + e->len);
+  reg->exact = (UChar* )xmalloc(e->len);
   CHECK_NULL_RETURN_MEMERR(reg->exact);
+  xmemcpy(reg->exact, e->s, e->len);
   reg->exact_end = reg->exact + e->len;
 
   allow_reverse =

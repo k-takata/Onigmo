@@ -5,7 +5,7 @@
 **********************************************************************/
 /*-
  * Copyright (c) 2002-2009  K.Kosako  <sndgk393 AT ybb DOT ne DOT jp>
- * Copyright (c) 2011       K.Takata  <kentkt AT csc DOT jp>
+ * Copyright (c) 2011-2012  K.Takata  <kentkt AT csc DOT jp>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,8 +36,8 @@ extern "C" {
 
 #define ONIGURUMA
 #define ONIGURUMA_VERSION_MAJOR   5
-#define ONIGURUMA_VERSION_MINOR   12
-#define ONIGURUMA_VERSION_TEENY   1
+#define ONIGURUMA_VERSION_MINOR   13
+#define ONIGURUMA_VERSION_TEENY   0
 
 #ifdef __cplusplus
 # ifndef  HAVE_PROTOTYPES
@@ -402,8 +402,10 @@ typedef unsigned int        OnigOptionType;
 #define ONIG_OPTION_POSIX_REGION         (ONIG_OPTION_NOTEOL << 1)
 /* options (ctype range) */
 #define ONIG_OPTION_ASCII_RANGE          (ONIG_OPTION_POSIX_REGION << 1)
+#define ONIG_OPTION_POSIX_BRACKET_ALL_RANGE (ONIG_OPTION_ASCII_RANGE << 1)
+#define ONIG_OPTION_WORD_BOUND_ALL_RANGE    (ONIG_OPTION_POSIX_BRACKET_ALL_RANGE << 1)
 /* options (newline) */
-#define ONIG_OPTION_NEWLINE_CRLF         (ONIG_OPTION_ASCII_RANGE << 1)
+#define ONIG_OPTION_NEWLINE_CRLF         (ONIG_OPTION_WORD_BOUND_ALL_RANGE << 1)
 #define ONIG_OPTION_MAXBIT               ONIG_OPTION_NEWLINE_CRLF  /* limit */
 
 #define ONIG_OPTION_ON(options,regopt)      ((options) |= (regopt))
@@ -487,7 +489,7 @@ ONIG_EXTERN OnigSyntaxType*   OnigDefaultSyntax;
 #define ONIG_SYN_OP2_ESC_CAPITAL_Q_QUOTE        (1U<<0)  /* \Q...\E */
 #define ONIG_SYN_OP2_QMARK_GROUP_EFFECT         (1U<<1)  /* (?...) */
 #define ONIG_SYN_OP2_OPTION_PERL                (1U<<2)  /* (?imsxadlu), (?-imsx), (?^imsxalu) */
-#define ONIG_SYN_OP2_OPTION_RUBY                (1U<<3)  /* (?imx), (?-imx)  */
+#define ONIG_SYN_OP2_OPTION_RUBY                (1U<<3)  /* (?imxadu), (?-imx)  */
 #define ONIG_SYN_OP2_PLUS_POSSESSIVE_REPEAT     (1U<<4)  /* ?+,*+,++ */
 #define ONIG_SYN_OP2_PLUS_POSSESSIVE_INTERVAL   (1U<<5)  /* {n,m}+   */
 #define ONIG_SYN_OP2_CCLASS_SET_OP              (1U<<6)  /* [...&&..[..]..] */
