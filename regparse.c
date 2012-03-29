@@ -149,7 +149,7 @@ bbuf_clone(BBuf** rto, BBuf* from)
 #define BITSET_IS_EMPTY(bs,empty) do {\
   int i;\
   empty = 1;\
-  for (i = 0; i < (int )BITSET_SIZE; i++) {\
+  for (i = 0; i < BITSET_SIZE; i++) {\
     if ((bs)[i] != 0) {\
       empty = 0; break;\
     }\
@@ -178,35 +178,35 @@ static void
 bitset_invert(BitSetRef bs)
 {
   int i;
-  for (i = 0; i < (int )BITSET_SIZE; i++) { bs[i] = ~(bs[i]); }
+  for (i = 0; i < BITSET_SIZE; i++) { bs[i] = ~(bs[i]); }
 }
 
 static void
 bitset_invert_to(BitSetRef from, BitSetRef to)
 {
   int i;
-  for (i = 0; i < (int )BITSET_SIZE; i++) { to[i] = ~(from[i]); }
+  for (i = 0; i < BITSET_SIZE; i++) { to[i] = ~(from[i]); }
 }
 
 static void
 bitset_and(BitSetRef dest, BitSetRef bs)
 {
   int i;
-  for (i = 0; i < (int )BITSET_SIZE; i++) { dest[i] &= bs[i]; }
+  for (i = 0; i < BITSET_SIZE; i++) { dest[i] &= bs[i]; }
 }
 
 static void
 bitset_or(BitSetRef dest, BitSetRef bs)
 {
   int i;
-  for (i = 0; i < (int )BITSET_SIZE; i++) { dest[i] |= bs[i]; }
+  for (i = 0; i < BITSET_SIZE; i++) { dest[i] |= bs[i]; }
 }
 
 static void
 bitset_copy(BitSetRef dest, BitSetRef bs)
 {
   int i;
-  for (i = 0; i < (int )BITSET_SIZE; i++) { dest[i] = bs[i]; }
+  for (i = 0; i < BITSET_SIZE; i++) { dest[i] = bs[i]; }
 }
 
 extern int
@@ -1717,7 +1717,7 @@ static int
 add_code_range_to_buf(BBuf** pbuf, OnigCodePoint from, OnigCodePoint to)
 {
   int r, inc_n, pos;
-  int low, high, bound, x;
+  OnigCodePoint low, high, bound, x;
   OnigCodePoint n, *data;
   BBuf* bbuf;
 
@@ -1772,7 +1772,7 @@ add_code_range_to_buf(BBuf** pbuf, OnigCodePoint from, OnigCodePoint to)
     int to_pos   = SIZE_CODE_POINT * (1 + (low + 1) * 2);
 
     if (inc_n > 0) {
-      if ((OnigCodePoint )high < n) {
+      if (high < n) {
 	int size = (n - high) * 2 * SIZE_CODE_POINT;
 	BBUF_MOVE_RIGHT(bbuf, from_pos, to_pos, size);
       }
@@ -3166,7 +3166,6 @@ fetch_named_backref_token(OnigCodePoint c, OnigToken* tok, UChar** src,
 			  UChar* end, ScanEnv* env)
 {
   int r, num;
-  OnigEncoding enc = env->enc;
   OnigSyntaxType* syn = env->syntax;
   UChar* prev;
   UChar* p = *src;
@@ -3608,7 +3607,7 @@ fetch_token(OnigToken* tok, UChar** src, UChar* end, ScanEnv* env)
 	  cnext = PPEEK;
 	  if (cnext == '0') {
 	    PINC;
-	    if (PPEEK_IS(get_name_end_code_point(c))) {  // \g<0>, \g'0'
+	    if (PPEEK_IS(get_name_end_code_point(c))) {  /* \g<0>, \g'0' */
 	      PINC;
 	      name_end = p;
 	      gnum = 0;
@@ -4478,7 +4477,7 @@ parse_char_class(Node** np, OnigToken* tok, UChar** src, UChar* end,
 	UChar* psave = p;
 	int i, base = tok->base;
 
-	buf[0] = tok->u.c;
+	buf[0] = (UChar )tok->u.c;
 	for (i = 1; i < ONIGENC_MBC_MAXLEN(env->enc); i++) {
 	  r = fetch_token_in_cc(tok, &p, end, env);
 	  if (r < 0) goto err;
@@ -4486,7 +4485,7 @@ parse_char_class(Node** np, OnigToken* tok, UChar** src, UChar* end,
 	    fetched = 1;
 	    break;
 	  }
-	  buf[i] = tok->u.c;
+	  buf[i] = (UChar )tok->u.c;
 	}
 
 	if (i < ONIGENC_MBC_MINLEN(env->enc)) {
@@ -4931,6 +4930,8 @@ parse_enclose(Node** np, OnigToken* tok, int term, UChar** src, UChar* end,
 	  num = backs[0];       /* XXX: use left most named group as Perl */
 	}
 #endif
+	else
+	  return ONIGERR_INVALID_CONDITION_PATTERN;
 	*np = node_new_enclose(ENCLOSE_CONDITION);
 	CHECK_NULL_RETURN_MEMERR(*np);
 	NENCLOSE(*np)->regnum = num;
@@ -5586,7 +5587,8 @@ node_extended_grapheme_cluster(Node** np, ScanEnv* env)
 }
 
 static int
-countbits(unsigned int bits) {
+countbits(unsigned int bits)
+{
   bits = (bits & 0x55555555) + ((bits >> 1) & 0x55555555);
   bits = (bits & 0x33333333) + ((bits >> 2) & 0x33333333);
   bits = (bits & 0x0f0f0f0f) + ((bits >> 4) & 0x0f0f0f0f);
@@ -5626,7 +5628,7 @@ is_onechar_cclass(CClassNode* cc, OnigCodePoint* code)
   }
 
   /* check bitset */
-  for (i = 0; i < (int )BITSET_SIZE; i++) {
+  for (i = 0; i < BITSET_SIZE; i++) {
     b1 = cc->bs[i];
     if (b1 != 0) {
       if (((b1 & (b1 - 1)) == 0) && (found == 0)) {
@@ -5638,9 +5640,13 @@ is_onechar_cclass(CClassNode* cc, OnigCodePoint* code)
       }
     }
   }
+  if (found == 0) {
+    /* the character class contains no char. */
+    return 0;
+  }
   if (j >= 0) {
     /* only one char found in the bitset, calculate the code point. */
-    c = BITS_IN_ROOM * j + (countbits(b2 - 1) & 0x1f);
+    c = BITS_IN_ROOM * j + countbits(b2 - 1);
   }
   *code = c;
   return 1;
@@ -5662,7 +5668,7 @@ parse_exp(Node** np, OnigToken* tok, int term,
   switch (tok->type) {
   case TK_ALT:
   case TK_EOT:
-    end_of_token:
+  end_of_token:
     *np = node_new_empty();
     return tok->type;
     break;
@@ -5886,7 +5892,8 @@ parse_exp(Node** np, OnigToken* tok, int term,
             *np = node_new_cclass();
             CHECK_NULL_RETURN_MEMERR(*np);
             cc = NCCLASS(*np);
-            add_ctype_to_cc(cc, tok->u.prop.ctype, 0, 0, env);
+            r = add_ctype_to_cc(cc, tok->u.prop.ctype, 0, 0, env);
+	    if (r != 0) return r;
             if (tok->u.prop.not != 0) NCCLASS_SET_NOT(cc);
 #ifdef USE_SHARED_CCLASS_TABLE
           }
@@ -5916,6 +5923,7 @@ parse_exp(Node** np, OnigToken* tok, int term,
 
       cc = NCCLASS(*np);
       if (is_onechar_cclass(cc, &code)) {
+	onig_node_free(*np);
 	*np = node_new_empty();
 	CHECK_NULL_RETURN_MEMERR(*np);
 	r = node_str_cat_codepoint(*np, env->enc, code);

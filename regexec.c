@@ -447,16 +447,16 @@ onig_region_copy(OnigRegion* to, OnigRegion* from)
 
 #define STACK_INIT(alloc_addr, ptr_num, stack_num)  do {\
   if (msa->stack_p) {\
-    alloc_addr = (char* )xalloca(sizeof(char*) * (ptr_num));\
+    alloc_addr = (char* )xalloca(sizeof(OnigStackIndex) * (ptr_num));\
     stk_alloc  = (OnigStackType* )(msa->stack_p);\
     stk_base   = stk_alloc;\
     stk        = stk_base;\
     stk_end    = stk_base + msa->stack_n;\
   }\
   else {\
-    alloc_addr = (char* )xalloca(sizeof(char*) * (ptr_num)\
+    alloc_addr = (char* )xalloca(sizeof(OnigStackIndex) * (ptr_num)\
 		       + sizeof(OnigStackType) * (stack_num));\
-    stk_alloc  = (OnigStackType* )(alloc_addr + sizeof(char*) * (ptr_num));\
+    stk_alloc  = (OnigStackType* )(alloc_addr + sizeof(OnigStackIndex) * (ptr_num));\
     stk_base   = stk_alloc;\
     stk        = stk_base;\
     stk_end    = stk_base + (stack_num);\
@@ -3877,8 +3877,8 @@ onig_search_gpos(regex_t* reg, const UChar* str, const UChar* end,
   ptrdiff_t r;
   UChar *s, *prev;
   OnigMatchArg msa;
-  const UChar *orig_start = start;
 #ifdef USE_MATCH_RANGE_MUST_BE_INSIDE_OF_SPECIFIED_RANGE
+  const UChar *orig_start = start;
   const UChar *orig_range = range;
 #endif
 

@@ -1,7 +1,45 @@
 History of Onigmo (Oniguruma-mod)
 
+2012/03/29: Version 5.13.2
+
+2012/03/24: [impl] suppress warnings.
+2012/03/24: [impl] remove unnecessary casts.
+2012/03/23: [impl] merge Ruby r35107.
+                   suppress warnings.
+2012/03/21: [bug]  memory leak occurs when char class contains only one char.
+2012/03/21: [impl] use actual type to get the size.
+                   see: http://bugs.ruby-lang.org/issues/6144
+2012/03/15: [impl] check the return code of add_ctype_to_cc().
+                   see: http://bugs.ruby-lang.org/issues/6145
+2012/03/15: [impl] fix error message.
+2012/03/15: [bug]  broken conditional expressions are allowed.
+                   see: http://bugs.ruby-lang.org/issues/6143
+2012/03/15: [impl] merge Ruby r35027.
+                   adjust style.
+2012/03/06: [impl] merge Ruby r34905.
+                   Remove unused variables.
+2012/02/29: [bug]  unexpected match occurs when a char class contains no char.
+2012/02/25: [impl] CaseFolding.py: fix regexp.
+2012/02/25: [impl] define the sizes of case folding tables in casefold.h.
+2012/02/24: [dist] fix samples to support x64.
+                   NOTE: This is a preliminary fix.
+2012/02/23: [impl] merge Ruby r34730.
+                   don't use // comment.
+2012/02/20: [impl] merge Ruby r34684, r34688 and r34692.
+                   fix-up warnings.
+2012/02/17: [dist] (thanks NARUSE, Yui)
+                   tool/enc-unicode.rb: Don't use \h to work with Ruby 1.8.
+2012/02/14: [spec] relative group reference in back reference with nest level
+                   is allowed.
+
+2012/02/05: Version 5.13.1
+
+2012/02/04: [spec] allow \b and \B in look-behind.
+2012/02/01: [new]  support for Unicode 6.1.
+
 2012/01/20: Version 5.13.0
 
+2012/01/20: [dist] update LTVERSION to "5:0:0".
 2012/01/17: [bug]  memory leak occurs when xrealloc fails.
 2012/01/15: [bug]  Calling function "add_code_range" without checking return
                    value.
@@ -31,6 +69,7 @@ History of Onigmo (Oniguruma-mod)
 
 2011/12/12: Version 5.12.0
 
+2011/12/12: [dist] update LTVERSION to "4:0:0".
 2011/12/11: [impl] use ONIGENC_IS_UNICODE to check if the encoding is Unicode
                    encoding.
 2011/12/10: [new]  support for Unicode 6.0.
@@ -47,6 +86,7 @@ History of Onigmo (Oniguruma-mod)
 
 2011/10/16: Version 5.11.4
 
+2011/10/16: [dist] update LTVERSION to "3:0:2".
 2011/10/15: [tune] optimize Sunday's quick search.
 2011/10/07: [API]  add ONIG_OPTION_DOTALL option as an alias of
                    ONIG_OPTION_MULTILINE.
@@ -60,6 +100,7 @@ History of Onigmo (Oniguruma-mod)
 
 2011/09/18: Version 5.11.3
 
+2011/09/18: [dist] update LTVERSION to "3:0:1".
 2011/09/18: [spec] \R matches \x85, \x2028 and \x2029 in Unicode encodings.
 2011/09/18: [new]  add ONIG_OPTION_NEWLINE_CRLF.
 2011/09/18: [tune] optimize \x{}.
@@ -87,6 +128,7 @@ History of Onigmo (Oniguruma-mod)
 
 2011/09/03: Version 5.11.0
 
+2011/09/03: [dist] update LTVERSION to "3:0:0".
 2011/09/01: [new]  add OnigPosition.
 2011/09/01: [new]  (thanks h-tom)
                    support for x64.
