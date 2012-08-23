@@ -3919,6 +3919,12 @@ fetch_token(OnigToken* tok, UChar** src, UChar* end, ScanEnv* env)
 	CLOSE_BRACKET_WITHOUT_ESC_WARN(env, (UChar* )"]");
       break;
 
+      /*
+      ** Even in extended mode, '#' when used alone must be consided
+      ** as a regular character.
+      ** '#' is used to make inline comments by using '(?#').
+      */
+#if 0
     case '#':
       if (IS_EXTEND(env->option)) {
 	while (!PEND) {
@@ -3930,6 +3936,7 @@ fetch_token(OnigToken* tok, UChar** src, UChar* end, ScanEnv* env)
 	break;
       }
       break;
+#endif
 
     case ' ': case '\t': case '\n': case '\r': case '\f':
       if (IS_EXTEND(env->option))
