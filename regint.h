@@ -84,6 +84,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 extern CRITICAL_SECTION gOnigMutex;
+#include <stddef.h>
 
 #if defined(_MSC_VER) && (_MSC_VER < 1300)
 #ifndef _INTPTR_T_DEFINED
