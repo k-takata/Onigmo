@@ -3629,10 +3629,12 @@ onig_search2(regex_t* reg, const UChar* str, const UChar* end,
             prev = s;
             s += enclen(reg->enc, s);
 
+#if 0
             while (!ONIGENC_IS_MBC_NEWLINE(reg->enc, prev, end) && s < range) {
               prev = s;
               s += enclen(reg->enc, s);
             }
+#endif
           } while (s < range);
           goto mismatch;
         }

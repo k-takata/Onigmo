@@ -85,6 +85,13 @@
 #include <windows.h>
 extern CRITICAL_SECTION gOnigMutex;
 
+#if defined(_MSC_VER) && (_MSC_VER < 1300)
+#ifndef _INTPTR_T_DEFINED
+#define _INTPTR_T_DEFINED
+typedef int intptr_t;
+#endif
+#endif
+
 /* */
 /* escape other system UChar definition */
 #include "config.h"
@@ -692,7 +699,7 @@ typedef struct {
   BBuf*  mbuf;   /* multi-byte info or NULL */
 } CClassNode;
 
-typedef long OnigStackIndex;
+typedef intptr_t OnigStackIndex;
 
 typedef struct _OnigStackType {
   unsigned int type;
