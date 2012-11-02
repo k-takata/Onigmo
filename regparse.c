@@ -407,9 +407,6 @@ typedef struct {
 typedef st_table  NameTable;
 typedef st_data_t HashDataType;   /* 1.6 st.h doesn't define st_data_t type */
 
-#define NAMEBUF_SIZE    24
-#define NAMEBUF_SIZE_1  25
-
 #ifdef ONIG_DEBUG
 static int
 i_print_name_entry(UChar* key, NameEntry* e, void* arg)
@@ -2582,7 +2579,7 @@ fetch_name_with_level(OnigCodePoint start_code, UChar** src, UChar* end,
     name_end = p;
     PFETCH(c);
     if (c == end_code || c == ')' || c == '+' || c == '-') {
-      if (is_num == 2) 	r = ONIGERR_INVALID_GROUP_NAME;
+      if (is_num == 2) r = ONIGERR_INVALID_GROUP_NAME;
       break;
     }
 
@@ -2707,7 +2704,7 @@ fetch_name(OnigCodePoint start_code, UChar** src, UChar* end,
       name_end = p;
       PFETCH(c);
       if (c == end_code || c == ')') {
-	if (is_num == 2) 	r = ONIGERR_INVALID_GROUP_NAME;
+	if (is_num == 2) r = ONIGERR_INVALID_GROUP_NAME;
 	break;
       }
 
@@ -4621,7 +4618,7 @@ parse_char_class(Node** np, OnigToken* tok, UChar** src, UChar* end,
 
 	if (IS_SYNTAX_BV(env->syntax, ONIG_SYN_ALLOW_DOUBLE_RANGE_OP_IN_CC)) {
 	  CC_ESC_WARN(env, (UChar* )"-");
-	  goto sb_char;   /* [0-9-a] is allowed as [0-9\-a] */
+	  goto range_end_val;   /* [0-9-a] is allowed as [0-9\-a] */
 	}
 	r = ONIGERR_UNMATCHED_RANGE_SPECIFIER_IN_CHAR_CLASS;
 	goto err;
@@ -5599,10 +5596,9 @@ countbits(unsigned int bits)
 static int
 is_onechar_cclass(CClassNode* cc, OnigCodePoint* code)
 {
-  OnigCodePoint c;
-  int found = 0;
-  int i, j = -1;
-  Bits b1, b2;
+  const OnigCodePoint not_found = ONIG_LAST_CODE_POINT;
+  OnigCodePoint c = not_found;
+  int i;
   BBuf *bbuf = cc->mbuf;
 
   if (IS_NCCLASS_NOT(cc)) return 0;
@@ -5614,42 +5610,36 @@ is_onechar_cclass(CClassNode* cc, OnigCodePoint* code)
     data = (OnigCodePoint* )(bbuf->p) + 1;
     if ((n == 1) && (data[0] == data[1])) {
       /* only one char found in the bbuf, save the code point. */
-      found = 1;
       c = data[0];
+      if (((c < SINGLE_BYTE_SIZE) && BITSET_AT(cc->bs, c))) {
+        /* skip if c is included in the bitset */
+	c = not_found;
+      }
     }
     else {
       return 0;  /* the bbuf contains multiple chars */
     }
   }
 
-  if (found && (c < SINGLE_BYTE_SIZE) && BITSET_AT(cc->bs, c)) {
-    /* c is included in the bitset, ignore the result of bbuf. */
-    found = 0;
-  }
-
   /* check bitset */
   for (i = 0; i < BITSET_SIZE; i++) {
-    b1 = cc->bs[i];
+    Bits b1 = cc->bs[i];
     if (b1 != 0) {
-      if (((b1 & (b1 - 1)) == 0) && (found == 0)) {
-        found = 1;
-        j = i;
-        b2 = b1;
+      if (((b1 & (b1 - 1)) == 0) && (c == not_found)) {
+        c = BITS_IN_ROOM * i + countbits(b1 - 1);
       } else {
         return 0;  /* the character class contains multiple chars */
       }
     }
   }
-  if (found == 0) {
-    /* the character class contains no char. */
-    return 0;
+
+  if (c != not_found) {
+    *code = c;
+    return 1;
   }
-  if (j >= 0) {
-    /* only one char found in the bitset, calculate the code point. */
-    c = BITS_IN_ROOM * j + countbits(b2 - 1);
-  }
-  *code = c;
-  return 1;
+
+  /* the character class contains no char. */
+  return 0;
 }
 
 
