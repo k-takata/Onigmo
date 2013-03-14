@@ -2609,7 +2609,7 @@ fetch_name_with_level(OnigCodePoint start_code, UChar** src, UChar* end,
 #endif /* USE_BACKREF_WITH_LEVEL */
 
 /*
-  def: 0 -> define name    (don't allow number name)
+  ref: 0 -> define name    (don't allow number name)
        1 -> reference name (allow number name)
 */
 static int
