@@ -3,7 +3,7 @@
 **********************************************************************/
 /*-
  * Copyright (c) 2002-2008  K.Kosako  <sndgk393 AT ybb DOT ne DOT jp>
- * Copyright (c) 2011-2012  K.Takata  <kentkt AT csc DOT jp>
+ * Copyright (c) 2011-2013  K.Takata  <kentkt AT csc DOT jp>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -2230,7 +2230,7 @@ onig_reduce_nested_quantifier(Node* pnode, Node* cnode)
   cnum = popular_quantifier_num(c);
   if (pnum < 0 || cnum < 0) return ;
 
-  switch(ReduceTypeTable[cnum][pnum]) {
+  switch (ReduceTypeTable[cnum][pnum]) {
   case RQ_DEL:
     *pnode = *cnode;
     break;
@@ -4036,23 +4036,35 @@ add_ctype_to_cc(CClassNode* cc, int ctype, int not, int char_prop, ScanEnv* env)
 
   r = ONIGENC_GET_CTYPE_CODE_RANGE(enc, ctype, &sb_out, &ranges);
   if (r == 0) {
-    r = add_ctype_to_cc_by_range(cc, ctype, not, env->enc, sb_out, ranges);
-    if ((r == 0) && ascii_range) {
-      if (not != 0) {
-	r = add_code_range_to_buf(&(cc->mbuf), 0x80, ONIG_LAST_CODE_POINT);
-      }
-      else {
-	CClassNode ccascii;
-	initialize_cclass(&ccascii);
-	if (ONIGENC_MBC_MINLEN(env->enc) > 1) {
-	  add_code_range(&(ccascii.mbuf), env, 0x00, 0x7F);
+    if (ascii_range) {
+      CClassNode ccwork;
+      initialize_cclass(&ccwork);
+      r = add_ctype_to_cc_by_range(&ccwork, ctype, not, env->enc, sb_out,
+				   ranges);
+      if (r == 0) {
+	if (not) {
+	  r = add_code_range_to_buf(&(ccwork.mbuf), 0x80, ONIG_LAST_CODE_POINT);
 	}
 	else {
-	  bitset_set_range(ccascii.bs, 0x00, 0x7F);
+	  CClassNode ccascii;
+	  initialize_cclass(&ccascii);
+	  if (ONIGENC_MBC_MINLEN(env->enc) > 1) {
+	    add_code_range(&(ccascii.mbuf), env, 0x00, 0x7F);
+	  }
+	  else {
+	    bitset_set_range(ccascii.bs, 0x00, 0x7F);
+	  }
+	  r = and_cclass(&ccwork, &ccascii, enc);
+	  if (IS_NOT_NULL(ccascii.mbuf)) bbuf_free(ccascii.mbuf);
 	}
-	r = and_cclass(cc, &ccascii, enc);
-	if (IS_NOT_NULL(ccascii.mbuf)) bbuf_free(ccascii.mbuf);
+	if (r == 0) {
+	  r = or_cclass(cc, &ccwork, enc);
+	}
+	if (IS_NOT_NULL(ccwork.mbuf)) bbuf_free(ccwork.mbuf);
       }
+    }
+    else {
+      r = add_ctype_to_cc_by_range(cc, ctype, not, env->enc, sb_out, ranges);
     }
     return r;
   }
@@ -5196,7 +5208,7 @@ set_quantifier(Node* qnode, Node* target, int group, ScanEnv* env)
 	  IS_SYNTAX_BV(env->syntax, ONIG_SYN_WARN_REDUNDANT_NESTED_REPEAT)) {
         UChar buf[WARN_BUFSIZE];
 
-        switch(ReduceTypeTable[targetq_num][nestq_num]) {
+        switch (ReduceTypeTable[targetq_num][nestq_num]) {
         case RQ_ASIS:
           break;
 
