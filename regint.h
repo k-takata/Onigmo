@@ -81,19 +81,6 @@
 #  define ARG_UNUSED
 #endif
 
-#include <stddef.h>
-
-#if defined(_MSC_VER) && (_MSC_VER < 1300)
-#ifndef _INTPTR_T_DEFINED
-#define _INTPTR_T_DEFINED
-typedef int intptr_t;
-#endif
-#ifndef _UINTPTR_T_DEFINED
-#define _UINTPTR_T_DEFINED
-typedef unsigned int uintptr_t;
-#endif
-#endif
-
 /* */
 /* escape other system UChar definition */
 #include "config.h"
