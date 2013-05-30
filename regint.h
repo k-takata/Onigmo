@@ -81,6 +81,9 @@
 #  define ARG_UNUSED
 #endif
 
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+extern CRITICAL_SECTION gOnigMutex;
 #include <stddef.h>
 
 #if defined(_MSC_VER) && (_MSC_VER < 1300)
@@ -102,18 +105,18 @@ typedef unsigned int uintptr_t;
 #endif
 
 #define USE_WORD_BEGIN_END        /* "\<", "\>" */
-#define USE_CAPTURE_HISTORY
-#define USE_VARIABLE_META_CHARS
-#define USE_POSIX_API_REGION_OPTION
+/* #define USE_CAPTURE_HISTORY */
+/* #define USE_VARIABLE_META_CHARS */
+/* #define USE_POSIX_API_REGION_OPTION */
 #define USE_FIND_LONGEST_SEARCH_ALL_OF_RANGE
 /* #define USE_COMBINATION_EXPLOSION_CHECK */     /* (X*)* */
 
-/* #define USE_MULTI_THREAD_SYSTEM */
-#define THREAD_SYSTEM_INIT      /* depend on thread system */
-#define THREAD_SYSTEM_END       /* depend on thread system */
-#define THREAD_ATOMIC_START     /* depend on thread system */
-#define THREAD_ATOMIC_END       /* depend on thread system */
-#define THREAD_PASS             /* depend on thread system */
+#define USE_MULTI_THREAD_SYSTEM
+#define THREAD_SYSTEM_INIT      InitializeCriticalSection(&gOnigMutex)
+#define THREAD_SYSTEM_END       DeleteCriticalSection(&gOnigMutex)
+#define THREAD_ATOMIC_START     EnterCriticalSection(&gOnigMutex)
+#define THREAD_ATOMIC_END       LeaveCriticalSection(&gOnigMutex)
+#define THREAD_PASS             Sleep(0)
 #define xmalloc     malloc
 #define xrealloc    realloc
 #define xcalloc     calloc
@@ -748,7 +751,8 @@ typedef struct {
   int   stack_n;
   OnigOptionType options;
   OnigRegion*    region;
-  const UChar* start;   /* search start position (for \G: BEGIN_POSITION) */
+  const UChar* start;   /* search start position */
+  const UChar* gpos;    /* global position (for \G: BEGIN_POSITION) */
 #ifdef USE_FIND_LONGEST_SEARCH_ALL_OF_RANGE
   int    best_len;      /* for ONIG_OPTION_FIND_LONGEST */
   UChar* best_s;
