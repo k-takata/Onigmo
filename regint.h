@@ -81,19 +81,6 @@
 #  define ARG_UNUSED
 #endif
 
-#include <stddef.h>
-
-#if defined(_MSC_VER) && (_MSC_VER < 1300)
-#ifndef _INTPTR_T_DEFINED
-#define _INTPTR_T_DEFINED
-typedef int intptr_t;
-#endif
-#ifndef _UINTPTR_T_DEFINED
-#define _UINTPTR_T_DEFINED
-typedef unsigned int uintptr_t;
-#endif
-#endif
-
 /* */
 /* escape other system UChar definition */
 #include "config.h"
@@ -200,6 +187,14 @@ typedef unsigned int uintptr_t;
 #endif
 #endif
 
+#ifdef HAVE_STDINT_H
+# include <stdint.h>
+#endif
+
+#ifdef STDC_HEADERS
+# include <stddef.h>
+#endif
+
 #ifdef __BORLANDC__
 #include <malloc.h>
 #endif
@@ -207,6 +202,19 @@ typedef unsigned int uintptr_t;
 #ifdef ONIG_DEBUG
 # include <stdio.h>
 #endif
+
+#ifdef _WIN32
+#if defined(_MSC_VER) && (_MSC_VER < 1300)
+#ifndef _INTPTR_T_DEFINED
+#define _INTPTR_T_DEFINED
+typedef int intptr_t;
+#endif
+#ifndef _UINTPTR_T_DEFINED
+#define _UINTPTR_T_DEFINED
+typedef unsigned int uintptr_t;
+#endif
+#endif
+#endif /* _WIN32 */
 
 #include "regenc.h"
 
