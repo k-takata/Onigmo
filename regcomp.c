@@ -1939,7 +1939,12 @@ renumber_by_map(Node* node, GroupNumRemap* map)
     r = renumber_by_map(NQTFR(node)->target, map);
     break;
   case NT_ENCLOSE:
-    r = renumber_by_map(NENCLOSE(node)->target, map);
+    {
+      EncloseNode* en = NENCLOSE(node);
+      if (en->type == ENCLOSE_CONDITION)
+        en->regnum = map[en->regnum].new_val;
+      r = renumber_by_map(en->target, map);
+    }
     break;
 
   case NT_BREF:
@@ -4086,8 +4091,8 @@ restart:
   ( BIT_NT_LIST | BIT_NT_ALT | BIT_NT_STR | BIT_NT_CCLASS | BIT_NT_CTYPE | \
     BIT_NT_CANY | BIT_NT_ANCHOR | BIT_NT_ENCLOSE | BIT_NT_QTFR | BIT_NT_CALL )
 
-#define ALLOWED_ENCLOSE_IN_LB       ( ENCLOSE_MEMORY )
-#define ALLOWED_ENCLOSE_IN_LB_NOT   0
+#define ALLOWED_ENCLOSE_IN_LB       ( ENCLOSE_MEMORY | ENCLOSE_OPTION )
+#define ALLOWED_ENCLOSE_IN_LB_NOT   ENCLOSE_OPTION
 
 #define ALLOWED_ANCHOR_IN_LB \
 ( ANCHOR_LOOK_BEHIND | ANCHOR_LOOK_BEHIND_NOT | ANCHOR_BEGIN_LINE | \
@@ -4986,7 +4991,7 @@ optimize_node_left(Node* node, NodeOptInfo* opt, OptEnv* env)
       int i, z;
       CClassNode* cc = NCCLASS(node);
 
-      /* no need to check ignore case. (setted in setup_tree()) */
+      /* no need to check ignore case. (set in setup_tree()) */
 
       if (IS_NOT_NULL(cc->mbuf) || IS_NCCLASS_NOT(cc)) {
         OnigDistance min = ONIGENC_MBC_MINLEN(env->enc);
@@ -6631,7 +6636,7 @@ print_indent_tree(FILE* f, Node* node, int indent)
     fprintf(f, "<enclose:%x> ", (int )node);
     switch (NENCLOSE(node)->type) {
     case ENCLOSE_OPTION:
-      fprintf(f, "option:%d\n", NENCLOSE(node)->option);
+      fprintf(f, "option:%d", NENCLOSE(node)->option);
       break;
     case ENCLOSE_MEMORY:
       fprintf(f, "memory:%d", NENCLOSE(node)->regnum);
