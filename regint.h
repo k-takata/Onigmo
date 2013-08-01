@@ -111,11 +111,21 @@ extern CRITICAL_SECTION gOnigMutex;
 /* #define USE_COMBINATION_EXPLOSION_CHECK */     /* (X*)* */
 
 #define USE_MULTI_THREAD_SYSTEM
+#ifndef THREAD_SYSTEM_INIT
 #define THREAD_SYSTEM_INIT      InitializeCriticalSection(&gOnigMutex)
+#endif
+#ifndef THREAD_SYSTEM_END
 #define THREAD_SYSTEM_END       DeleteCriticalSection(&gOnigMutex)
+#endif
+#ifndef THREAD_ATOMIC_START
 #define THREAD_ATOMIC_START     EnterCriticalSection(&gOnigMutex)
+#endif
+#ifndef THREAD_ATOMIC_END
 #define THREAD_ATOMIC_END       LeaveCriticalSection(&gOnigMutex)
+#endif
+#ifndef THREAD_PASS
 #define THREAD_PASS             Sleep(0)
+#endif
 #define xmalloc     malloc
 #define xrealloc    realloc
 #define xcalloc     calloc
