@@ -230,7 +230,7 @@ Oniguruma API  Version 5.9.2  2008/02/19
 
 
 # int onig_match(regex_t* reg, const UChar* str, const UChar* end, const UChar* at,
-		 OnigRegion* region, OnigOptionType option)
+                 OnigRegion* region, OnigOptionType option)
 
   Match string and return result and matching region.
 
