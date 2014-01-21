@@ -2513,7 +2513,6 @@ is_not_included(Node* x, Node* y, regex_t* reg)
       if (NSTRING_LEN(x) == 0)
 	break;
 
-      //c = *(xs->s);
       switch (ytype) {
       case NT_CTYPE:
         switch (NCTYPE(y)->ctype) {
