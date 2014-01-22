@@ -1,4 +1,79 @@
-History
+History of onig-5.9.x-mod
+
+2014/01/21: onig-5.9.5-mod1
+
+2014/01/21: [impl] change the type of OnigCodePoint.
+2014/01/21: [dist] Merge Oniguruma 5.9.5.
+
+2013/07/07: onig-5.9.4-mod1
+
+2013/05/30: [dist] Merge Oniguruma 5.9.3 and 5.9.4.
+2013/05/30: [impl] revert some modifications specific to bregonig.dll.
+2013/04/10: [bug]  fix problem with optimization of \z.
+                   see: http://bugs.ruby-lang.org/issues/8210
+
+2013/03/17: onig-5.9.2-mod8
+
+2013/03/15: [dist] fix typos
+2011/07/04: [bug]  fix typo in debug log.
+2011/06/28: [impl] remove duplicated debug log.
+2013/03/10: [bug]  fix lookbehind assertion fails with /m mode enabled.
+                   see: http://bugs.ruby-lang.org/issues/8023
+2013/03/02: [dist] add .editorconfig (see: http://editorconfig.org/)
+
+2012/11/03: onig-5.9.2-mod7
+
+2012/10/18: [dist] Win32: add batch-mode inference rules.
+2011/06/10: [bug]  char class may cause memory leak
+                   http://redmine.ruby-lang.org/issues/show/4061
+2011/09/09: [bug]  merge Ruby r24550.
+                   fix memory leaks.
+2011/09/09: [bug]  merge Ruby r24546.
+                   fix the first character bigger than sb_out was dropped.
+2011/09/09: [bug]  merge Ruby r19864.
+                   CCV_SB is only for single byte.
+2011/07/29: [bug]  \p{Katakana} doesn't match JIS X 0201 Katakana when EUC-JP
+                   is used.
+2012/01/17: [bug]  memory leak occurs when xrealloc fails.
+2012/01/15: [bug]  Calling function "add_code_range" without checking return
+                   value.
+2012/01/11: [bug]  memory leak occurs when history_tree_add_child fails.
+2012/01/11: [bug]  (thanks Masashi Tsuji)
+                   OnigCaptureTreeNode memory leak.
+2012/10/17: [bug]  merge Ruby r37175.
+                   should match with a hyphen after a range in a character
+                   class.
+
+2011/11/21: onig-5.9.2-mod6
+
+2011/11/17: [bug]  /[\x{0}-X]/i doesn't match properly when UTF-16/32 is used.
+2011/09/01: [new]  (thanks h-tom)
+                   support for x64.
+
+2011/08/28: onig-5.9.2-mod5
+
+2011/06/24: [tune] enable optimization for .* except look-behind.
+
+2011/06/04: onig-5.9.2-mod4
+
+            [bug]  Case Sensitivity in Regular Expressions with Lookbehind
+                   http://redmine.ruby-lang.org/issues/show/4088
+
+2011/01/10: onig-5.9.2-mod3
+
+            [spec] allow negative look behind in look behind.
+
+2011/01/01: onig-5.9.2-mod2
+
+            [bug]  /(?<=a).*b/ =~ "aab" doesn't match
+                   http://redmine.ruby-lang.org/issues/show/3568
+
+2010/01/09: onig-5.9.2-mod
+
+            [impl] modify some settings and implementations for bregonig.dll.
+
+======================================================================
+History of Oniguruma
 
 2013/10/21: Version 5.9.5
 
