@@ -30,7 +30,14 @@
 
 #include "regparse.h"
 
+#if defined(USE_MULTI_THREAD_SYSTEM) \
+  && defined(USE_DEFAULT_MULTI_THREAD_SYSTEM)
+#ifdef _WIN32
 CRITICAL_SECTION gOnigMutex;
+#else
+pthread_mutex_t gOnigMutex;
+#endif
+#endif
 
 OnigCaseFoldType OnigDefaultCaseFoldFlag = ONIGENC_CASE_FOLD_MIN;
 
@@ -2665,22 +2672,22 @@ is_not_included(Node* x, Node* y, regex_t* reg)
 	break;
 
       case NT_CCLASS:
-	{
-	  CClassNode* cc = NCCLASS(y);
+        {
+          CClassNode* cc = NCCLASS(y);
 
-	  code = ONIGENC_MBC_TO_CODE(reg->enc, xs->s,
-				     xs->s + ONIGENC_MBC_MAXLEN(reg->enc));
-	  return (onig_is_code_in_cc(reg->enc, code, cc) != 0 ? 0 : 1);
-	}
-	break;
+          code = ONIGENC_MBC_TO_CODE(reg->enc, xs->s,
+                                     xs->s + ONIGENC_MBC_MAXLEN(reg->enc));
+          return (onig_is_code_in_cc(reg->enc, code, cc) != 0 ? 0 : 1);
+        }
+        break;
 
       case NT_STR:
-	{
-	  UChar *q;
-	  StrNode* ys = NSTR(y);
-	  len = NSTRING_LEN(x);
-	  if (len > NSTRING_LEN(y)) len = NSTRING_LEN(y);
-	  if (NSTRING_IS_AMBIG(x) || NSTRING_IS_AMBIG(y)) {
+        {
+          UChar *q;
+          StrNode* ys = NSTR(y);
+          len = NSTRING_LEN(x);
+          if (len > NSTRING_LEN(y)) len = NSTRING_LEN(y);
+          if (NSTRING_IS_AMBIG(x) || NSTRING_IS_AMBIG(y)) {
             /* tiny version */
             return 0;
 	  }
@@ -2693,7 +2700,7 @@ is_not_included(Node* x, Node* y, regex_t* reg)
 	break;
 
       default:
-	break;
+        break;
       }
     }
     break;
@@ -3489,29 +3496,29 @@ expand_case_fold_string_alt(int item_num, OnigCaseFoldCodeItem items[],
       UChar *q = p + items[i].byte_len;
 
       if (q < end) {
-	r = expand_case_fold_make_rem_string(&rem, q, end, reg);
-	if (r != 0) {
-	  onig_node_free(an);
-	  goto mem_err2;
-	}
+        r = expand_case_fold_make_rem_string(&rem, q, end, reg);
+        if (r != 0) {
+          onig_node_free(an);
+          goto mem_err2;
+        }
 
-	xnode = onig_node_list_add(NULL_NODE, snode);
-	if (IS_NULL(xnode)) {
-	  onig_node_free(an);
-	  onig_node_free(rem);
-	  goto mem_err2;
-	}
-	if (IS_NULL(onig_node_list_add(xnode, rem))) {
-	  onig_node_free(an);
-	  onig_node_free(xnode);
-	  onig_node_free(rem);
-	  goto mem_err;
-	}
+        xnode = onig_node_list_add(NULL_NODE, snode);
+        if (IS_NULL(xnode)) {
+          onig_node_free(an);
+          onig_node_free(rem);
+          goto mem_err2;
+        }
+        if (IS_NULL(onig_node_list_add(xnode, rem))) {
+          onig_node_free(an);
+          onig_node_free(xnode);
+          onig_node_free(rem);
+          goto mem_err;
+        }
 
-	NCAR(an) = xnode;
+        NCAR(an) = xnode;
       }
       else {
-	NCAR(an) = snode;
+        NCAR(an) = snode;
       }
 
       NCDR(var_anode) = an;

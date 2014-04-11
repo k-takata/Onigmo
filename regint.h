@@ -92,10 +92,6 @@
 #  define ARG_UNUSED
 #endif
 
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-extern CRITICAL_SECTION gOnigMutex;
-
 /* */
 /* escape other system UChar definition */
 #include "config.h"
@@ -110,22 +106,53 @@ extern CRITICAL_SECTION gOnigMutex;
 #define USE_FIND_LONGEST_SEARCH_ALL_OF_RANGE
 /* #define USE_COMBINATION_EXPLOSION_CHECK */     /* (X*)* */
 
+/* multithread config */
 #define USE_MULTI_THREAD_SYSTEM
-#ifndef THREAD_SYSTEM_INIT
+#define USE_DEFAULT_MULTI_THREAD_SYSTEM
+
+#if defined(USE_MULTI_THREAD_SYSTEM) \
+  && defined(USE_DEFAULT_MULTI_THREAD_SYSTEM)
+
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+extern CRITICAL_SECTION gOnigMutex;
 #define THREAD_SYSTEM_INIT      InitializeCriticalSection(&gOnigMutex)
+#define THREAD_SYSTEM_END       DeleteCriticalSection(&gOnigMutex)
+#define THREAD_ATOMIC_START     EnterCriticalSection(&gOnigMutex)
+#define THREAD_ATOMIC_END       LeaveCriticalSection(&gOnigMutex)
+#define THREAD_PASS             Sleep(0)
+#else /* _WIN32 */
+#include <pthread.h>
+#include <sched.h>
+extern pthread_mutex_t gOnigMutex;
+#define THREAD_SYSTEM_INIT      pthread_mutex_init(&gOnigMutex, NULL)
+#define THREAD_SYSTEM_END       pthread_mutex_destroy(&gOnigMutex)
+#define THREAD_ATOMIC_START     pthread_mutex_lock(&gOnigMutex)
+#define THREAD_ATOMIC_END       pthread_mutex_unlock(&gOnigMutex)
+#define THREAD_PASS             sched_yield()
+#endif /* _WIN32 */
+
+#else /* USE_DEFAULT_MULTI_THREAD_SYSTEM */
+
+#ifndef THREAD_SYSTEM_INIT
+#define THREAD_SYSTEM_INIT      /* depend on thread system */
 #endif
 #ifndef THREAD_SYSTEM_END
-#define THREAD_SYSTEM_END       DeleteCriticalSection(&gOnigMutex)
+#define THREAD_SYSTEM_END       /* depend on thread system */
 #endif
 #ifndef THREAD_ATOMIC_START
-#define THREAD_ATOMIC_START     EnterCriticalSection(&gOnigMutex)
+#define THREAD_ATOMIC_START     /* depend on thread system */
 #endif
 #ifndef THREAD_ATOMIC_END
-#define THREAD_ATOMIC_END       LeaveCriticalSection(&gOnigMutex)
+#define THREAD_ATOMIC_END       /* depend on thread system */
 #endif
 #ifndef THREAD_PASS
-#define THREAD_PASS             Sleep(0)
+#define THREAD_PASS             /* depend on thread system */
 #endif
+
+#endif /* USE_DEFAULT_MULTI_THREAD_SYSTEM */
+
 #define xmalloc     malloc
 #define xrealloc    realloc
 #define xcalloc     calloc
@@ -345,6 +372,8 @@ typedef unsigned int  BitStatusType;
           (ONIG_OPTION_FIND_LONGEST | ONIG_OPTION_FIND_NOT_EMPTY))
 #define IS_NOTBOL(option)         ((option) & ONIG_OPTION_NOTBOL)
 #define IS_NOTEOL(option)         ((option) & ONIG_OPTION_NOTEOL)
+#define IS_NOTBOS(option)         ((option) & ONIG_OPTION_NOTBOS)
+#define IS_NOTEOS(option)         ((option) & ONIG_OPTION_NOTEOS)
 #define IS_POSIX_REGION(option)   ((option) & ONIG_OPTION_POSIX_REGION)
 #define IS_ASCII_RANGE(option)    ((option) & ONIG_OPTION_ASCII_RANGE)
 #define IS_POSIX_BRACKET_ALL_RANGE(option)  ((option) & ONIG_OPTION_POSIX_BRACKET_ALL_RANGE)
