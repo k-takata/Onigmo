@@ -1,5 +1,11 @@
 History of onig-5.9.x-mod
 
+2014/04/12: [new]  (thanks mattn)
+                   Fix build on mingw (Issue #33)
+2014/04/12: [bug]  fix: segmation fault occurs when many groups are used
+                   (Issue #24)
+                   see: https://bugs.ruby-lang.org/issues/8716
+
 2014/01/21: onig-5.9.5-mod1
 
 2014/01/21: [impl] change the type of OnigCodePoint.
