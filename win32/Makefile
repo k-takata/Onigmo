@@ -199,16 +199,16 @@ ptest: $(testp)
 	.\$(testp)
 
 $(testc): $(testc).c $(libname)
-	$(CC) -nologo -o $(testc) -DONIG_EXTERN=extern $(testc).c $(libname)
+	$(CC) -nologo -o $(testc) -DONIG_EXTERN=extern $(testc).c $(libname) -MT
 
 $(testp): $(testc).c $(dlllib)
-	$(CC) -nologo -DPOSIX_TEST -o $(testp) $(testc).c $(dlllib)
+	$(CC) -nologo -DPOSIX_TEST -o $(testp) $(testc).c $(dlllib) -MT
 
 #$(testc)u.c: test.rb testconvu.rb
 #	ruby -Ke testconvu.rb test.rb > $@
 
 $(testcu): $(testcu).c $(libname)
-	$(CC) -nologo -o $(testcu) -DONIG_EXTERN=extern $(testcu).c $(libname)
+	$(CC) -nologo -o $(testcu) -DONIG_EXTERN=extern $(testcu).c $(libname) -MT
 
 $(libbase).def: win32\makedef.py oniguruma.h regenc.h oniggnu.h onigposix.h
 	$(PYTHON) win32\makedef.py > $@
