@@ -2,6 +2,7 @@ History of onig-5.9.x-mod
 
 2014/04/12: [new]  (thanks mattn)
                    Fix build on mingw (Issue #33)
+2014/04/12: [bug]  deadlock occurs when recursive lock is not allowed
 2014/04/12: [bug]  fix: segmation fault occurs when many groups are used
                    (Issue #24)
                    see: https://bugs.ruby-lang.org/issues/8716
