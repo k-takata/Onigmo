@@ -1,5 +1,11 @@
 History of onig-5.9.x-mod
 
+2014/04/18: [bug]  fix warning about alloca() with MinGW (Issue #35)
+2014/04/17: [spec] add checking the number of capture groups (Issue #24)
+                   Now the maximum number of capture groups is explicitly
+                   limited to ONIG_MAX_CAPTURE_GROUP_NUM (32767).
+                   Also add a new error code: ONIGERR_TOO_MANY_CAPTURE_GROUPS.
+2014/04/17: [bug]  double free may occur
 2014/04/12: [new]  (thanks mattn)
                    Fix build on mingw (Issue #33)
 2014/04/12: [bug]  deadlock occurs when recursive lock is not allowed
