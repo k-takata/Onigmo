@@ -199,8 +199,8 @@ extern CRITICAL_SECTION gOnigMutex;
 # include <stddef.h>
 #endif
 
-#ifdef __BORLANDC__
-#include <malloc.h>
+#ifdef _WIN32
+#include <malloc.h>	/* for alloca() */
 #endif
 
 #ifdef ONIG_DEBUG
