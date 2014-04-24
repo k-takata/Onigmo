@@ -167,7 +167,7 @@ $(testcu): $(testcu).c $(libname)
 	$(CC) -o $(testcu) -DONIG_EXTERN=extern $(testcu).c $(libname)
 
 clean:
-	rm *.o $(encdir)/*.o *.a *.dll $(testp).exe $(testc).exe $(testcu).exe
+	-rm -f *.o $(encdir)/*.o *.a *.dll $(testp).exe $(testc).exe $(testcu).exe
 
 
 # backup file suffix

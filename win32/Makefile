@@ -175,7 +175,7 @@ $(testcu): $(testcu).c $(libname)
 	$(CC) -nologo -o $(testcu) -DONIG_EXTERN=extern $(testcu).c $(libname)
 
 clean:
-	del *.obj $(encdir)\*.obj *.lib *.exp *.dll $(testp).exe $(testc).exe $(testcu).exe
+	-del *.obj $(encdir)\*.obj *.lib *.exp *.dll $(testp).exe $(testc).exe $(testcu).exe
 
 
 # backup file suffix
