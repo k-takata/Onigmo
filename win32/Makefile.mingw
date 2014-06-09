@@ -110,7 +110,7 @@ regposerr.o: regposerr.c $(posixheaders) config.h
 st.o:        st.c regint.h oniguruma.h config.h st.h
 
 $(encdir)\ascii.o:      $(encdir)\ascii.c regenc.h config.h
-$(encdir)\unicode.o:    $(encdir)\unicode.c regenc.h config.h
+$(encdir)\unicode.o:    $(encdir)\unicode.c regint.h regenc.h config.h
 $(encdir)\utf8.o:       $(encdir)\utf8.c regenc.h config.h
 $(encdir)\utf16_be.o:   $(encdir)\utf16_be.c regenc.h config.h
 $(encdir)\utf16_le.o:   $(encdir)\utf16_le.c regenc.h config.h
