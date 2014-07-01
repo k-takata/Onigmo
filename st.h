@@ -16,12 +16,16 @@ extern "C" {
 
 RUBY_SYMBOL_EXPORT_BEGIN
 
+#if 1
+typedef uintptr_t st_data_t;
+#else
 #if SIZEOF_LONG == SIZEOF_VOIDP
 typedef unsigned long st_data_t;
 #elif SIZEOF_LONG_LONG == SIZEOF_VOIDP
 typedef unsigned LONG_LONG st_data_t;
 #else
 # error ---->> st.c requires sizeof(void*) == sizeof(long) or sizeof(LONG_LONG) to be compiled. <<----
+#endif
 #endif
 #define ST_DATA_T_DEFINED
 
@@ -49,8 +53,8 @@ typedef st_data_t st_index_t;
 typedef int st_compare_func(st_data_t, st_data_t);
 typedef st_index_t st_hash_func(st_data_t);
 
-typedef char st_check_for_sizeof_st_index_t[SIZEOF_VOIDP == (int)sizeof(st_index_t) ? 1 : -1];
-#define SIZEOF_ST_INDEX_T SIZEOF_VOIDP
+//typedef char st_check_for_sizeof_st_index_t[SIZEOF_VOIDP == (int)sizeof(st_index_t) ? 1 : -1];
+//#define SIZEOF_ST_INDEX_T SIZEOF_VOIDP
 
 struct st_hash_type {
     int (*compare)(ANYARGS /*st_data_t, st_data_t*/); /* st_compare_func* */

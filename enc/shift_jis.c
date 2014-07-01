@@ -577,7 +577,7 @@ get_ctype_code_range(OnigCtype ctype, OnigCodePoint* sb_out,
 }
 
 #ifndef ENC_CP932
-OnigEncodingDefine(shift_jis, Shift_JIS) = {
+OnigEncodingDefine(shift_jis, SJIS) = {
   mbc_enc_len,
   "Shift_JIS",   /* name */
   2,             /* max byte length */

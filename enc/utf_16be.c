@@ -235,7 +235,7 @@ utf16be_get_case_fold_codes_by_str(OnigCaseFoldType flag,
 						    flag, p, end, items);
 }
 
-OnigEncodingDefine(utf_16be, UTF_16BE) = {
+OnigEncodingDefine(utf_16be, UTF16_BE) = {
   utf16be_mbc_enc_len,
   "UTF-16BE",   /* name */
   4,            /* max byte length */
