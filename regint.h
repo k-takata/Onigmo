@@ -92,8 +92,6 @@
 #  define ARG_UNUSED
 #endif
 
-/* */
-/* escape other system UChar definition */
 #ifndef RUBY_DEFINES_H
 #include "ruby/ruby.h"
 #undef xmalloc
@@ -101,11 +99,14 @@
 #undef xcalloc
 #undef xfree
 #endif
+
+/* */
+/* escape other system UChar definition */
 #ifdef ONIG_ESCAPE_UCHAR_COLLISION
 #undef ONIG_ESCAPE_UCHAR_COLLISION
 #endif
+
 #define USE_WORD_BEGIN_END          /* "\<": word-begin, "\>": word-end */
-#undef USE_MATCH_RANGE_IS_COMPLETE_RANGE
 #undef USE_CAPTURE_HISTORY
 #define USE_VARIABLE_META_CHARS
 #define USE_POSIX_API_REGION_OPTION     /* needed for POSIX API support */
@@ -276,6 +277,10 @@ extern pthread_mutex_t gOnigMutex;
 # include <stdint.h>
 #endif
 
+#ifdef HAVE_INTTYPES_H
+# include <inttypes.h>
+#endif
+
 #ifdef STDC_HEADERS
 # include <stddef.h>
 #endif
@@ -300,6 +305,18 @@ typedef unsigned int uintptr_t;
 #endif
 #endif
 #endif /* _WIN32 */
+
+#ifndef PRIdPTR
+#ifdef _WIN64
+#define PRIdPTR	"I64d"
+#define PRIuPTR	"I64u"
+#define PRIxPTR	"I64x"
+#else
+#define PRIdPTR	"ld"
+#define PRIuPTR	"lu"
+#define PRIxPTR	"lx"
+#endif
+#endif
 
 #include "regenc.h"
 
