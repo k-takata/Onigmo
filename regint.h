@@ -192,6 +192,8 @@ extern pthread_mutex_t gOnigMutex;
 #define USE_UPPER_CASE_TABLE
 #else
 
+#define CHECK_INTERRUPT_IN_MATCH_AT
+
 #define st_init_table                  onig_st_init_table
 #define st_init_table_with_size        onig_st_init_table_with_size
 #define st_init_numtable               onig_st_init_numtable
@@ -211,8 +213,6 @@ extern pthread_mutex_t gOnigMutex;
 #define st_nothing_key_free            onig_st_nothing_key_free
 /* */
 #define onig_st_is_member              st_is_member
-
-#define CHECK_INTERRUPT_IN_MATCH_AT
 
 #endif
 
@@ -330,6 +330,8 @@ RUBY_SYMBOL_EXPORT_BEGIN
 #endif
 #define MIN(a,b) (((a)>(b))?(b):(a))
 #define MAX(a,b) (((a)<(b))?(b):(a))
+
+#define numberof(array) (int)(sizeof(array) / sizeof((array)[0]))
 
 #define IS_NULL(p)                    (((void*)(p)) == (void*)0)
 #define IS_NOT_NULL(p)                (((void*)(p)) != (void*)0)
@@ -912,9 +914,7 @@ typedef struct {
 
 extern OnigOpInfoType OnigOpInfo[];
 
-#ifdef ONIG_DEBUG
 extern void onig_print_compiled_byte_code P_((FILE* f, UChar* bp, UChar* bpend, UChar** nextp, OnigEncoding enc));
-#endif
 
 #ifdef ONIG_DEBUG_STATISTICS
 extern void onig_statistics_init P_((void));
