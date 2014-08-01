@@ -1,0 +1,26 @@
+language: c
+
+compiler:
+        - gcc
+        - clang
+
+env:
+        - CFLAGS=--coverage CONFOPT=
+
+before_install:
+        - sudo apt-get update -qq
+        - sudo apt-get install -qq lcov rubygems
+        - gem install lcoveralls
+
+before_script:
+        - ./configure $CONFOPT && make && make testc testp testcu
+
+script:
+        - ./testc
+        - ./testp
+        - ./testcu
+        - make -C sample test
+
+after_success:
+        - lcov -c -d .libs -o coverage.info
+        - lcoveralls --retry-count 5 coverage.info
