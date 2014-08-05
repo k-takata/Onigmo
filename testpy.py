@@ -1166,8 +1166,14 @@ def main():
         n("(?ia)[\\w]+", "\u212a\u017f");
         n("(?ia)[^\\W]+", "\u212a\u017f");
         x2("(?ia)[^\\W]+", "ks", 0, 2);
+        n("(?iu)\\p{ASCII}", "\u212a");
+        n("(?iu)\\P{ASCII}", "s");
         n("(?iu)[\\p{ASCII}]", "\u212a");
         n("(?iu)[\\P{ASCII}]", "s");
+        n("(?ia)\\p{ASCII}", "\u212a");
+        n("(?ia)\\P{ASCII}", "s");
+        n("(?ia)[\\p{ASCII}]", "\u212a");
+        n("(?ia)[\\P{ASCII}]", "s");
         x2("(?iu)[^s]+", "Ss\u017f ", 3, 4);
         x2("(?ia)[^s]+", "Ss\u017f ", 3, 4);
 
