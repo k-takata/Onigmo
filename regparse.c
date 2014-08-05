@@ -4646,6 +4646,7 @@ parse_char_class(Node** np, OnigToken* tok, UChar** src, UChar* end,
 
 	ctype = fetch_char_property_to_ctype(&p, end, env);
 	if (ctype < 0) return ctype;
+	/* if (ctype == ONIGENC_CTYPE_ASCII)  { XXX } */
 	r = add_ctype_to_cc(cc, ctype, tok->u.prop.not, 0, env);
 	if (r != 0) return r;
 	goto next_class;
@@ -5550,16 +5551,20 @@ cclass_case_fold(Node** np, CClassNode* cc, int ascii_range, ScanEnv* env)
     return r;
   }
   if (IS_NOT_NULL(iarg.alt_root)) {
-#if 0
-    Node* work = onig_node_new_alt(*np, iarg.alt_root);
-#else
-    Node* work = node_alt_add(*np, iarg.alt_root);
-#endif
+    Node* work;
+    if (NTYPE(*np) != NT_ALT) {
+      work = onig_node_new_alt(*np, NULL);
+      if (IS_NULL(work)) {
+	onig_node_free(iarg.alt_root);
+	return ONIGERR_MEMORY;
+      }
+      *np = work;
+    }
+    work = node_alt_add(*np, iarg.alt_root);
     if (IS_NULL(work)) {
       onig_node_free(iarg.alt_root);
       return ONIGERR_MEMORY;
     }
-    *np = work;
   }
   return r;
 }
@@ -6044,13 +6049,14 @@ parse_exp(Node** np, OnigToken* tok, int term,
 	goto string_loop;
       }
       if (IS_IGNORECASE(env->option)) {
+#if 0
 	IApplyCaseFoldArg iarg;
 
 	iarg.env      = env;
 	iarg.cc       = cc;
 	iarg.alt_root = NULL_NODE;
 	iarg.ptail    = &(iarg.alt_root);
-	iarg.ascii_range = 1; /* XXX */
+	iarg.ascii_range = IS_ASCII_RANGE(env->option);
 
 	r = ONIGENC_APPLY_ALL_CASE_FOLD(env->enc, env->case_fold_flag,
 					i_apply_case_fold, &iarg);
@@ -6066,6 +6072,11 @@ parse_exp(Node** np, OnigToken* tok, int term,
           }
           *np = work;
 	}
+#else
+	r = cclass_case_fold(np, cc, IS_ASCII_RANGE(env->option), env);
+	if (r != 0)
+	  return r;
+#endif
       }
     }
     break;
