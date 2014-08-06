@@ -1178,6 +1178,10 @@ def main():
         x2("(?ia)[s]+", "Ss\u017f ", 0, 3);
         x2("(?iu)[^s]+", "Ss\u017f ", 3, 4);
         x2("(?ia)[^s]+", "Ss\u017f ", 3, 4);
+        x2("(?iu)[[:lower:]]", "\u017f", 0, 1);
+        n("(?ia)[[:lower:]]", "\u017f");
+        x2("(?u)[[:upper:]]", "\u212a", 0, 1);
+        n("(?a)[[:upper:]]", "\u212a");
 
     # \< and \>
     x2("\\<abc\\>", " abc ", 1, 4, syn=onig.ONIG_SYNTAX_GREP)
