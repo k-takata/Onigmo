@@ -4242,6 +4242,7 @@ parse_posix_bracket(CClassNode* cc, CClassNode* asc_cc,
 
   const PosixBracketEntryType *pb;
   int not, i, r;
+  int ascii_range;
   OnigCodePoint c;
   OnigEncoding enc = env->enc;
   UChar *p = *src;
@@ -4256,30 +4257,24 @@ parse_posix_bracket(CClassNode* cc, CClassNode* asc_cc,
   if (onigenc_strlen(enc, p, end) < POSIX_BRACKET_NAME_MIN_LEN + 3)
     goto not_posix_bracket;
 
+  ascii_range = IS_ASCII_RANGE(env->option) &&
+		  ! IS_POSIX_BRACKET_ALL_RANGE(env->option);
   for (pb = PBS; pb < PBS + numberof(PBS); pb++) {
     if (onigenc_with_ascii_strncmp(enc, p, end, pb->name, pb->len) == 0) {
       p = (UChar* )onigenc_step(enc, p, end, pb->len);
       if (onigenc_with_ascii_strncmp(enc, p, end, (UChar* )":]", 2) != 0)
         return ONIGERR_INVALID_POSIX_BRACKET_TYPE;
 
-      r = add_ctype_to_cc(cc, pb->ctype, not,
-			  IS_ASCII_RANGE(env->option) &&
-				! IS_POSIX_BRACKET_ALL_RANGE(env->option),
-			  env);
+      r = add_ctype_to_cc(cc, pb->ctype, not, ascii_range, env);
       if (r != 0) return r;
 
       if (asc_cc) {
 	if (pb->ctype == ONIGENC_CTYPE_WORD
-	    || pb->ctype == ONIGENC_CTYPE_ASCII)
-	  r = add_ctype_to_cc(asc_cc, pb->ctype, !not,
-			      IS_ASCII_RANGE(env->option) &&
-				! IS_POSIX_BRACKET_ALL_RANGE(env->option),
-			      env);
+	    || pb->ctype == ONIGENC_CTYPE_ASCII
+	    || ascii_range)
+	  r = add_ctype_to_cc(asc_cc, pb->ctype, !not, ascii_range, env);
 	else
-	  r = add_ctype_to_cc(asc_cc, pb->ctype, not,
-			      IS_ASCII_RANGE(env->option) &&
-				! IS_POSIX_BRACKET_ALL_RANGE(env->option),
-			      env);
+	  r = add_ctype_to_cc(asc_cc, pb->ctype, not, ascii_range, env);
 	if (r != 0) return r;
       }
 
