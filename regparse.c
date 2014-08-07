@@ -6155,9 +6155,12 @@ parse_exp(Node** np, OnigToken* tok, int term,
       }
       if (IS_IGNORECASE(env->option)) {
 	r = cclass_case_fold(np, cc, NCCLASS(asc_node), env);
-	onig_node_free(asc_node);
-	if (r != 0) return r;
+	if (r != 0) {
+	  onig_node_free(asc_node);
+	  return r;
+	}
       }
+      onig_node_free(asc_node);
     }
     break;
 
