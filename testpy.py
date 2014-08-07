@@ -1161,6 +1161,11 @@ def main():
     x2("(?u)[[:word:]]+", "aあ", 0, 2);
     n("(?u)[[:^word:]]+", "aあ");
 
+    x2("(?iu)\\p{lower}\\p{upper}", "Ab", 0, 2);
+    x2("(?ia)\\p{lower}\\p{upper}", "Ab", 0, 2);
+    x2("(?iu)[[:lower:]][[:upper:]]", "Ab", 0, 2);
+    x2("(?ia)[[:lower:]][[:upper:]]", "Ab", 0, 2);
+
     if is_unicode_encoding(onig_encoding):
         n("(?ia)\\w+", "\u212a\u017f");      # KELVIN SIGN, LATIN SMALL LETTER LONG S
         n("(?ia)[\\w]+", "\u212a\u017f");
