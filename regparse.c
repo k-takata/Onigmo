@@ -4250,7 +4250,7 @@ parse_posix_bracket(CClassNode* cc, CClassNode* asc_cc,
       r = add_ctype_to_cc(cc, pb->ctype, not, ascii_range, env);
       if (r != 0) return r;
 
-      if (asc_cc) {
+      if (IS_NOT_NULL(asc_cc)) {
 	if (pb->ctype == ONIGENC_CTYPE_WORD
 	    || pb->ctype == ONIGENC_CTYPE_ASCII
 	    || ascii_range)
@@ -4363,13 +4363,13 @@ next_state_class(CClassNode* cc, CClassNode* asc_cc,
   if (*state == CCS_VALUE && *type != CCV_CLASS) {
     if (*type == CCV_SB) {
       BITSET_SET_BIT(cc->bs, (int )(*vs));
-      if (asc_cc)
+      if (IS_NOT_NULL(asc_cc))
 	BITSET_SET_BIT(asc_cc->bs, (int )(*vs));
     }
     else if (*type == CCV_CODE_POINT) {
       r = add_code_range(&(cc->mbuf), env, *vs, *vs);
       if (r < 0) return r;
-      if (asc_cc) {
+      if (IS_NOT_NULL(asc_cc)) {
 	r = add_code_range(&(asc_cc->mbuf), env, *vs, *vs);
 	if (r < 0) return r;
       }
@@ -4394,13 +4394,13 @@ next_state_val(CClassNode* cc, CClassNode* asc_cc,
   case CCS_VALUE:
     if (*type == CCV_SB) {
       BITSET_SET_BIT(cc->bs, (int )(*vs));
-      if (asc_cc)
+      if (IS_NOT_NULL(asc_cc))
 	BITSET_SET_BIT(asc_cc->bs, (int )(*vs));
     }
     else if (*type == CCV_CODE_POINT) {
       r = add_code_range(&(cc->mbuf), env, *vs, *vs);
       if (r < 0) return r;
-      if (asc_cc) {
+      if (IS_NOT_NULL(asc_cc)) {
 	r = add_code_range(&(asc_cc->mbuf), env, *vs, *vs);
 	if (r < 0) return r;
       }
@@ -4420,13 +4420,13 @@ next_state_val(CClassNode* cc, CClassNode* asc_cc,
 	    return ONIGERR_EMPTY_RANGE_IN_CHAR_CLASS;
 	}
 	bitset_set_range(cc->bs, (int )*vs, (int )v);
-	if (asc_cc)
+	if (IS_NOT_NULL(asc_cc))
 	  bitset_set_range(asc_cc->bs, (int )*vs, (int )v);
       }
       else {
 	r = add_code_range(&(cc->mbuf), env, *vs, v);
 	if (r < 0) return r;
-	if (asc_cc) {
+	if (IS_NOT_NULL(asc_cc)) {
 	  r = add_code_range(&(asc_cc->mbuf), env, *vs, v);
 	  if (r < 0) return r;
 	}
@@ -4445,7 +4445,7 @@ next_state_val(CClassNode* cc, CClassNode* asc_cc,
 	bitset_set_range(cc->bs, (int )*vs, (int )(v < 0xff ? v : 0xff));
 	r = add_code_range(&(cc->mbuf), env, (OnigCodePoint )*vs, v);
 	if (r < 0) return r;
-	if (asc_cc) {
+	if (IS_NOT_NULL(asc_cc)) {
 	  bitset_set_range(asc_cc->bs, (int )*vs, (int )(v < 0xff ? v : 0xff));
 	  r = add_code_range(&(asc_cc->mbuf), env, (OnigCodePoint )*vs, v);
 	  if (r < 0) return r;
@@ -4662,7 +4662,7 @@ parse_char_class(Node** np, Node** asc_np, OnigToken* tok, UChar** src, UChar* e
       r = add_ctype_to_cc(cc, tok->u.prop.ctype, tok->u.prop.not,
 			  IS_ASCII_RANGE(env->option), env);
       if (r != 0) return r;
-      if (asc_cc) {
+      if (IS_NOT_NULL(asc_cc)) {
 	if (tok->u.prop.ctype == ONIGENC_CTYPE_WORD
 	    /* || tok->u.prop.ctype == ONIGENC_CTYPE_ASCII */)
 	  r = add_ctype_to_cc(asc_cc, tok->u.prop.ctype, !tok->u.prop.not,
@@ -4686,7 +4686,7 @@ parse_char_class(Node** np, Node** asc_np, OnigToken* tok, UChar** src, UChar* e
 	if (ctype < 0) return ctype;
 	r = add_ctype_to_cc(cc, ctype, tok->u.prop.not, 0, env);
 	if (r != 0) return r;
-	if (asc_cc) {
+	if (IS_NOT_NULL(asc_cc)) {
 	  if (ctype == ONIGENC_CTYPE_WORD
 	      || ctype == ONIGENC_CTYPE_ASCII)
 	    r = add_ctype_to_cc(asc_cc, ctype, !tok->u.prop.not, 0, env);
@@ -4762,7 +4762,7 @@ parse_char_class(Node** np, Node** asc_np, OnigToken* tok, UChar** src, UChar* e
 	  acc = NCCLASS(anode);
 	  r = or_cclass(cc, acc, env->enc);
 	}
-	if (r == 0 && aasc_node) {
+	if (r == 0 && IS_NOT_NULL(aasc_node)) {
 	  acc = NCCLASS(aasc_node);
 	  r = or_cclass(asc_cc, acc, env->enc);
 	}
@@ -4787,7 +4787,7 @@ parse_char_class(Node** np, Node** asc_np, OnigToken* tok, UChar** src, UChar* e
 	  r = and_cclass(prev_cc, cc, env->enc);
 	  if (r != 0) goto err;
 	  bbuf_free(cc->mbuf);
-	  if (asc_cc) {
+	  if (IS_NOT_NULL(asc_cc)) {
 	    r = and_cclass(asc_prev_cc, asc_cc, env->enc);
 	    if (r != 0) goto err;
 	    bbuf_free(asc_cc->mbuf);
@@ -4796,13 +4796,13 @@ parse_char_class(Node** np, Node** asc_np, OnigToken* tok, UChar** src, UChar* e
 	else {
 	  prev_cc = cc;
 	  cc = &work_cc;
-	  if (asc_cc) {
+	  if (IS_NOT_NULL(asc_cc)) {
 	    asc_prev_cc = asc_cc;
 	    asc_cc = &asc_work_cc;
 	  }
 	}
 	initialize_cclass(cc);
-	if (asc_cc)
+	if (IS_NOT_NULL(asc_cc))
 	  initialize_cclass(asc_cc);
       }
       break;
@@ -4836,7 +4836,7 @@ parse_char_class(Node** np, Node** asc_np, OnigToken* tok, UChar** src, UChar* e
     if (r != 0) goto err;
     bbuf_free(cc->mbuf);
     cc = prev_cc;
-    if (asc_cc) {
+    if (IS_NOT_NULL(asc_cc)) {
       r = and_cclass(asc_prev_cc, asc_cc, env->enc);
       if (r != 0) goto err;
       bbuf_free(asc_cc->mbuf);
@@ -4846,12 +4846,12 @@ parse_char_class(Node** np, Node** asc_np, OnigToken* tok, UChar** src, UChar* e
 
   if (neg != 0) {
     NCCLASS_SET_NOT(cc);
-    if (asc_cc)
+    if (IS_NOT_NULL(asc_cc))
       NCCLASS_SET_NOT(asc_cc);
   }
   else {
     NCCLASS_CLEAR_NOT(cc);
-    if (asc_cc)
+    if (IS_NOT_NULL(asc_cc))
       NCCLASS_CLEAR_NOT(asc_cc);
   }
   if (IS_NCCLASS_NOT(cc) &&
@@ -4881,7 +4881,7 @@ parse_char_class(Node** np, Node** asc_np, OnigToken* tok, UChar** src, UChar* e
  err:
   if (cc != NCCLASS(*np))
     bbuf_free(cc->mbuf);
-  if (asc_cc && (asc_cc != NCCLASS(*asc_np)))
+  if (IS_NOT_NULL(asc_cc) && (asc_cc != NCCLASS(*asc_np)))
     bbuf_free(asc_cc->mbuf);
   return r;
 }
@@ -5535,7 +5535,8 @@ i_apply_case_fold(OnigCodePoint from, OnigCodePoint to[],
   cc  = iarg->cc;
   asc_cc = iarg->asc_cc;
   bs = cc->bs;
-  if (!asc_cc)
+
+  if (IS_NULL(asc_cc))
     add_flag = 1;
   else {
     add_flag = onig_is_code_in_cc(env->enc, from, asc_cc);
