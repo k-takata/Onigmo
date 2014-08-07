@@ -1319,24 +1319,6 @@ onig_node_new_alt(Node* left, Node* right)
   return node;
 }
 
-static Node*
-node_alt_add(Node* alt, Node* x)
-{
-  Node *n;
-
-  n = onig_node_new_alt(x, NULL);
-  if (IS_NULL(n)) return NULL_NODE;
-
-  if (IS_NOT_NULL(alt)) {
-    while (IS_NOT_NULL(NCDR(alt)))
-      alt = NCDR(alt);
-
-    NCDR(alt) = n;
-  }
-
-  return n;
-}
-
 extern Node*
 onig_node_new_anchor(int type)
 {
@@ -5651,20 +5633,12 @@ cclass_case_fold(Node** np, CClassNode* cc, CClassNode* asc_cc, ScanEnv* env)
     return r;
   }
   if (IS_NOT_NULL(iarg.alt_root)) {
-    Node* work;
-    if (NTYPE(*np) != NT_ALT) {
-      work = onig_node_new_alt(*np, NULL);
-      if (IS_NULL(work)) {
-	onig_node_free(iarg.alt_root);
-	return ONIGERR_MEMORY;
-      }
-      *np = work;
-    }
-    work = node_alt_add(*np, iarg.alt_root);
+    Node* work = onig_node_new_alt(*np, iarg.alt_root);
     if (IS_NULL(work)) {
       onig_node_free(iarg.alt_root);
       return ONIGERR_MEMORY;
     }
+    *np = work;
   }
   return r;
 }
