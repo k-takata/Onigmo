@@ -4251,11 +4251,9 @@ parse_posix_bracket(CClassNode* cc, CClassNode* asc_cc,
       if (r != 0) return r;
 
       if (IS_NOT_NULL(asc_cc)) {
-	if (pb->ctype == ONIGENC_CTYPE_WORD
-	    || pb->ctype == ONIGENC_CTYPE_ASCII
-	    || ascii_range)
-	  r = add_ctype_to_cc(asc_cc, pb->ctype, !not, ascii_range, env);
-	else
+	if (pb->ctype != ONIGENC_CTYPE_WORD &&
+	    pb->ctype != ONIGENC_CTYPE_ASCII &&
+	    !ascii_range)
 	  r = add_ctype_to_cc(asc_cc, pb->ctype, not, ascii_range, env);
 	if (r != 0) return r;
       }
@@ -4663,10 +4661,7 @@ parse_char_class(Node** np, Node** asc_np, OnigToken* tok, UChar** src, UChar* e
 			  IS_ASCII_RANGE(env->option), env);
       if (r != 0) return r;
       if (IS_NOT_NULL(asc_cc)) {
-	if (tok->u.prop.ctype == ONIGENC_CTYPE_WORD)
-	  r = add_ctype_to_cc(asc_cc, tok->u.prop.ctype, !tok->u.prop.not,
-			      IS_ASCII_RANGE(env->option), env);
-	else
+	if (tok->u.prop.ctype != ONIGENC_CTYPE_WORD)
 	  r = add_ctype_to_cc(asc_cc, tok->u.prop.ctype, tok->u.prop.not,
 			      IS_ASCII_RANGE(env->option), env);
 	if (r != 0) return r;
@@ -4686,9 +4681,7 @@ parse_char_class(Node** np, Node** asc_np, OnigToken* tok, UChar** src, UChar* e
 	r = add_ctype_to_cc(cc, ctype, tok->u.prop.not, 0, env);
 	if (r != 0) return r;
 	if (IS_NOT_NULL(asc_cc)) {
-	  if (ctype == ONIGENC_CTYPE_ASCII)
-	    r = add_ctype_to_cc(asc_cc, ctype, !tok->u.prop.not, 0, env);
-	  else
+	  if (ctype != ONIGENC_CTYPE_ASCII)
 	    r = add_ctype_to_cc(asc_cc, ctype, tok->u.prop.not, 0, env);
 	  if (r != 0) return r;
 	}
@@ -5534,8 +5527,10 @@ i_apply_case_fold(OnigCodePoint from, OnigCodePoint to[],
   asc_cc = iarg->asc_cc;
   bs = cc->bs;
 
-  if (IS_NULL(asc_cc))
+  if (IS_NULL(asc_cc) ||
+      (ONIGENC_IS_ASCII_CODE(from) == ONIGENC_IS_ASCII_CODE(*to))) {
     add_flag = 1;
+  }
   else {
     add_flag = onig_is_code_in_cc(env->enc, from, asc_cc);
     if (IS_NCCLASS_NOT(asc_cc))
