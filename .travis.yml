@@ -2,16 +2,19 @@ language: c
 
 compiler:
         - gcc
-        - clang
+        #- clang
 
 env:
-        - CFLAGS=--coverage CONFOPT=
-        - CFLAGS=--coverage CONFOPT=--enable-multithread
+        global:
+                - secure: "i6k8tUrMbZO1bjHojJgwpnIMk9HyrFfpG8StlktUvkWPmmSIt7BxtW4cXLAQQh0NhTCxBRLE/teXXs19Wa/YP8VIjWSTI6B7U1WfZAmdjM2IVLwZqkj8TyYITiGrcjJCMe2sVqADyU10jwUwaMENiRhmFbbhYQQY10tpjkb3Sec="
+        matrix:
+                #- CFLAGS=--coverage CONFOPT=
+                - CFLAGS=--coverage CONFOPT=--enable-multithread
 
-before_install:
-        - sudo apt-get update -qq
-        - sudo apt-get install -qq lcov rubygems
-        - gem install lcoveralls
+#before_install:
+#        - sudo apt-get update -qq
+#        - sudo apt-get install -qq lcov rubygems
+#        - gem install lcoveralls
 
 before_script:
         - ./configure $CONFOPT && make
@@ -22,6 +25,16 @@ script:
         - ./sample/crnl
         - make -C sample test
 
-after_success:
-        - lcov -c -d .libs -o coverage.info
-        - lcoveralls --retry-count 5 coverage.info
+#after_success:
+#        - lcov -c -d .libs -o coverage.info
+#        - lcoveralls --retry-count 5 coverage.info
+
+addons:
+        coverity_scan:
+                project:
+                        name: "k-takata/Onigmo"
+                        description: "Build submitted via Travis CI"
+                notification_email: kentkt@csc.jp
+                build_command_prepend: "./configure; make clean"
+                build_command: "make -j 4"
+                branch_pattern: coverity_scan
