@@ -1,5 +1,9 @@
 language: c
 
+branches:
+        except:
+                - bregonig
+
 compiler:
         - gcc
         - clang
