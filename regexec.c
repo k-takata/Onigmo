@@ -3676,7 +3676,7 @@ onig_search2(regex_t* reg, const UChar* str, const UChar* end,
             prev = s;
             s += enclen(reg->enc, s);
 
-            if ((reg->anchor & ANCHOR_LOOK_BEHIND) == 0) {
+            if ((reg->anchor & (ANCHOR_LOOK_BEHIND | ANCHOR_PREC_READ_NOT)) == 0) {
               while (!ONIGENC_IS_MBC_NEWLINE(reg->enc, prev, end) && s < range) {
                 prev = s;
                 s += enclen(reg->enc, s);
