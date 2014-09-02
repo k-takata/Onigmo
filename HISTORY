@@ -1,5 +1,7 @@
 History of onig-5.9.x-mod
 
+2014/09/01: [bug]  "ab" =~ /(?!^a).*b/ doesn't match (Issue #44)
+                   https://bugs.ruby-lang.org/issues/9728
 2014/07/31: [bug]  /(?i)\u0149\u0149/ =~ "\u0149\u0149" doesn't match
                    (Issue #40)
 2014/07/15: [bug]  /[a-c#]+\W/ =~ "def#" fails when encoding is UTF-16/32
@@ -43,6 +45,7 @@ History of onig-5.9.x-mod
 2012/10/18: [dist] Win32: add batch-mode inference rules.
 2011/06/10: [bug]  char class may cause memory leak
                    http://redmine.ruby-lang.org/issues/show/4061
+                   New URL: http://bugs.ruby-lang.org/issues/4061
 2011/09/09: [bug]  merge Ruby r24550.
                    fix memory leaks.
 2011/09/09: [bug]  merge Ruby r24546.
@@ -75,6 +78,7 @@ History of onig-5.9.x-mod
 
             [bug]  Case Sensitivity in Regular Expressions with Lookbehind
                    http://redmine.ruby-lang.org/issues/show/4088
+                   New URL: http://bugs.ruby-lang.org/issues/4088
 
 2011/01/10: onig-5.9.2-mod3
 
@@ -84,6 +88,7 @@ History of onig-5.9.x-mod
 
             [bug]  /(?<=a).*b/ =~ "aab" doesn't match
                    http://redmine.ruby-lang.org/issues/show/3568
+                   New URL: http://bugs.ruby-lang.org/issues/3568
 
 2010/01/09: onig-5.9.2-mod
 
