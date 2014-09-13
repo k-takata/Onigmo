@@ -1,5 +1,7 @@
 History of onig-5.9.x-mod
 
+2014/09/13: onig-5.9.5-mod2
+
 2014/09/01: [bug]  "ab" =~ /(?!^a).*b/ doesn't match (Issue #44)
                    https://bugs.ruby-lang.org/issues/9728
 2014/07/31: [bug]  /(?i)\u0149\u0149/ =~ "\u0149\u0149" doesn't match
