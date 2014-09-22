@@ -17,4 +17,8 @@
 //#define STRNCASECMP	_strnicmp
 #define ALLOCA_N(t, s)	alloca(sizeof(t)*(s))
 
+enum ruby_special_consts {
+    RUBY_SPECIAL_SHIFT  = 8
+};
+
 #include "ruby/st.h"
