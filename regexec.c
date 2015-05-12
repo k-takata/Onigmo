@@ -1244,7 +1244,7 @@ onig_print_statistics(FILE* f)
   int i;
   fprintf(f, "   count      prev        time\n");
   for (i = 0; OnigOpInfo[i].opcode >= 0; i++) {
-    fprintf(f, "%8d: %8d: %10ld: %s\n",
+    fprintf(f, "%8d: %8d: %10lu: %s\n",
 	    OpCounter[i], OpPrevCounter[i], OpTime[i], OnigOpInfo[i].name);
   }
   fprintf(f, "\nmax stack depth: %d\n", MaxStackDepth);
@@ -1338,8 +1338,9 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
       int len;
       fprintf(stderr, "%4d> \"", (*p == OP_FINISH) ? -1 : (int )(s - str));
       bp = buf;
+      q = s;
       if (*p != OP_FINISH) {    /* s may not be a valid pointer if OP_FINISH. */
-	for (i = 0, q = s; i < 7 && q < end; i++) {
+	for (i = 0; i < 7 && q < end; i++) {
 	  len = enclen(encode, q);
 	  while (len-- > 0) *bp++ = *q++;
 	}
