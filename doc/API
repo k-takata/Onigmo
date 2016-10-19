@@ -526,7 +526,7 @@ Oniguruma API  Version 5.9.2  2008/02/19
   2 op, op2, behavior, options: value of element.
 
 
-# void onig_copy_encoding(OnigEncoding to, OnigOnigEncoding from)
+# void onig_copy_encoding(OnigEncoding to, OnigEncoding from)
 
   Copy encoding.
 
