@@ -18,10 +18,11 @@ env:
 
 sudo: false
 
-#addons:
-#  apt:
-#    packages:
-#      - lcov
+addons:
+  apt:
+    packages:
+      - lcov
+      - python3
 
 #before_install:
 #  - gem install lcoveralls
