@@ -30,8 +30,8 @@
 
 #include "regint.h"
 
-#ifndef ONIGGNU_H
-#include "oniggnu.h"
+#ifndef ONIGMOGNU_H
+# include "onigmognu.h"
 #endif
 
 extern void
@@ -48,12 +48,13 @@ re_adjust_startpos(regex_t* reg, const char* string, int size,
   if (startpos > 0 && ONIGENC_MBC_MAXLEN(reg->enc) != 1 && startpos < size) {
     UChar *p;
     UChar *s = (UChar* )string + startpos;
+    UChar *e = (UChar* )string + size;
 
     if (range > 0) {
-      p = onigenc_get_right_adjust_char_head(reg->enc, (UChar* )string, s);
+      p = onigenc_get_right_adjust_char_head(reg->enc, (UChar* )string, s, e);
     }
     else {
-      p = ONIGENC_LEFT_ADJUST_CHAR_HEAD(reg->enc, (UChar* )string, s);
+      p = ONIGENC_LEFT_ADJUST_CHAR_HEAD(reg->enc, (UChar* )string, s, e);
     }
     return (int )(p - (UChar* )string);
   }

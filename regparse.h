@@ -1,5 +1,5 @@
-#ifndef REGPARSE_H
-#define REGPARSE_H
+#ifndef ONIGMO_REGPARSE_H
+#define ONIGMO_REGPARSE_H
 /**********************************************************************
   regparse.h -  Onigmo (Oniguruma-mod) (regular expression library)
 **********************************************************************/
@@ -31,6 +31,8 @@
  */
 
 #include "regint.h"
+
+RUBY_SYMBOL_EXPORT_BEGIN
 
 /* node type */
 #define NT_STR         0
@@ -65,7 +67,11 @@
                        BIT_NT_CANY | BIT_NT_BREF)) != 0)
 
 #define NTYPE(node)             ((node)->u.base.type)
-#define SET_NTYPE(node, ntype)   (node)->u.base.type = (ntype)
+#define SET_NTYPE(node, ntype) \
+    do { \
+	int value = ntype; \
+	memcpy(&((node)->u.base.type), &value, sizeof(int)); \
+    } while (0)
 
 #define NSTR(node)         (&((node)->u.str))
 #define NCCLASS(node)      (&((node)->u.cclass))
@@ -284,7 +290,7 @@ typedef struct {
   OnigOptionType   option;
   OnigCaseFoldType case_fold_flag;
   OnigEncoding     enc;
-  OnigSyntaxType*  syntax;
+  const OnigSyntaxType* syntax;
   BitStatusType    capture_history;
   BitStatusType    bt_mem_start;
   BitStatusType    bt_mem_end;
@@ -310,6 +316,11 @@ typedef struct {
   int comb_exp_max_regnum;
   int curr_max_regnum;
   int has_recursion;
+#endif
+  int warnings_flag;
+#ifdef RUBY
+  const char* sourcefile;
+  int sourceline;
 #endif
 } ScanEnv;
 
@@ -348,9 +359,11 @@ extern int    onig_parse_make_tree P_((Node** root, const UChar* pattern, const 
 extern int    onig_free_shared_cclass_table P_((void));
 
 #ifdef ONIG_DEBUG
-#ifdef USE_NAMED_GROUP
+# ifdef USE_NAMED_GROUP
 extern int onig_print_names(FILE*, regex_t*);
-#endif
+# endif
 #endif
 
-#endif /* REGPARSE_H */
+RUBY_SYMBOL_EXPORT_END
+
+#endif /* ONIGMO_REGPARSE_H */

@@ -5,7 +5,7 @@
  */
 #include <stdio.h>
 #include <string.h>
-#include "oniguruma.h"
+#include "onigmo.h"
 
 static int
 node_callback(int group, OnigPosition beg, OnigPosition end, int level,
@@ -14,6 +14,23 @@ node_callback(int group, OnigPosition beg, OnigPosition end, int level,
   int i;
 
   if (at != ONIG_TRAVERSE_CALLBACK_AT_FIRST)
+    return -1; /* error */
+
+  /* indent */
+  for (i = 0; i < level * 2; i++)
+    fputc(' ', stderr);
+
+  fprintf(stderr, "%d: (%ld-%ld)\n", group, beg, end);
+  return 0;
+}
+
+static int
+node_callback_last(int group, OnigPosition beg, OnigPosition end, int level,
+	      int at, void* arg)
+{
+  int i;
+
+  if (at != ONIG_TRAVERSE_CALLBACK_AT_LAST)
     return -1; /* error */
 
   /* indent */
@@ -36,7 +53,7 @@ extern int ex(unsigned char* str, unsigned char* pattern,
   r = onig_new(&reg, pattern, pattern + strlen((char* )pattern),
 	       ONIG_OPTION_DEFAULT, ONIG_ENCODING_ASCII, syntax, &einfo);
   if (r != ONIG_NORMAL) {
-    char s[ONIG_MAX_ERROR_MESSAGE_LEN];
+    OnigUChar s[ONIG_MAX_ERROR_MESSAGE_LEN];
     onig_error_code_to_str(s, r, &einfo);
     fprintf(stderr, "ERROR: %s\n", s);
     return -1;
@@ -63,12 +80,17 @@ extern int ex(unsigned char* str, unsigned char* pattern,
 
     r = onig_capture_tree_traverse(region, ONIG_TRAVERSE_CALLBACK_AT_FIRST,
                                    node_callback, (void* )0);
+    fprintf(stderr, "\n");
+
+    r = onig_capture_tree_traverse(region, ONIG_TRAVERSE_CALLBACK_AT_LAST,
+                                   node_callback_last, (void* )0);
+    fprintf(stderr, "\n");
   }
   else if (r == ONIG_MISMATCH) {
     fprintf(stderr, "search fail\n");
   }
   else { /* error */
-    char s[ONIG_MAX_ERROR_MESSAGE_LEN];
+    OnigUChar s[ONIG_MAX_ERROR_MESSAGE_LEN];
     onig_error_code_to_str(s, r);
     return -1;
   }

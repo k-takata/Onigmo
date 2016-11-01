@@ -32,11 +32,11 @@
 #include <stdio.h> /* for vsnprintf() */
 
 #ifdef HAVE_STDARG_PROTOTYPES
-#include <stdarg.h>
-#define va_init_list(a,b) va_start(a,b)
+# include <stdarg.h>
+# define va_init_list(a,b) va_start(a,b)
 #else
-#include <varargs.h>
-#define va_init_list(a,b) va_start(a)
+# include <varargs.h>
+# define va_init_list(a,b) va_start(a)
 #endif
 
 extern UChar*
@@ -232,7 +232,7 @@ static int to_ascii(OnigEncoding enc, UChar *s, UChar *end,
 	buf[len++] = (UChar )code;
       }
 
-      p += enclen(enc, p);
+      p += enclen(enc, p, end);
       if (len >= buf_size) break;
     }
 
@@ -323,31 +323,16 @@ onig_error_code_to_str(s, code, va_alist)
   return (int )len;
 }
 
-
 void
-#ifdef HAVE_STDARG_PROTOTYPES
-onig_snprintf_with_pattern(UChar buf[], int bufsize, OnigEncoding enc,
-                           UChar* pat, UChar* pat_end, const UChar *fmt, ...)
-#else
-onig_snprintf_with_pattern(buf, bufsize, enc, pat, pat_end, fmt, va_alist)
-    UChar buf[];
-    int bufsize;
-    OnigEncoding enc;
-    UChar* pat;
-    UChar* pat_end;
-    const UChar *fmt;
-    va_dcl
-#endif
+onig_vsnprintf_with_pattern(UChar buf[], int bufsize, OnigEncoding enc,
+                           UChar* pat, UChar* pat_end, const UChar *fmt, va_list args)
 {
   size_t need;
   int n, len;
   UChar *p, *s, *bp;
   UChar bs[6];
-  va_list args;
 
-  va_init_list(args, fmt);
   n = xvsnprintf((char* )buf, bufsize, (const char* )fmt, args);
-  va_end(args);
 
   need = (pat_end - pat) * 4 + 4;
 
@@ -357,21 +342,12 @@ onig_snprintf_with_pattern(buf, bufsize, enc, pat, pat_end, fmt, va_alist)
 
     p = pat;
     while (p < pat_end) {
-      if (*p == '\\') {
-	*s++ = *p++;
-	len = enclen(enc, p);
-	while (len-- > 0) *s++ = *p++;
-      }
-      else if (*p == '/') {
-	*s++ = (unsigned char )'\\';
-	*s++ = *p++;
-      }
-      else if (ONIGENC_IS_MBC_HEAD(enc, p)) {
-        len = enclen(enc, p);
+      if (ONIGENC_IS_MBC_HEAD(enc, p, pat_end)) {
+        len = enclen(enc, p, pat_end);
         if (ONIGENC_MBC_MINLEN(enc) == 1) {
           while (len-- > 0) *s++ = *p++;
         }
-        else { /* for UTF16 */
+        else { /* for UTF16/32 */
           int blen;
 
           while (len-- > 0) {
@@ -381,6 +357,15 @@ onig_snprintf_with_pattern(buf, bufsize, enc, pat, pat_end, fmt, va_alist)
             while (blen-- > 0) *s++ = *bp++;
           }
         }
+      }
+      else if (*p == '\\') {
+	*s++ = *p++;
+	len = enclen(enc, p, pat_end);
+	while (len-- > 0) *s++ = *p++;
+      }
+      else if (*p == '/') {
+	*s++ = (unsigned char )'\\';
+	*s++ = *p++;
       }
       else if (!ONIGENC_IS_CODE_PRINT(enc, *p) &&
 	       !ONIGENC_IS_CODE_SPACE(enc, *p)) {
@@ -398,3 +383,26 @@ onig_snprintf_with_pattern(buf, bufsize, enc, pat, pat_end, fmt, va_alist)
     *s   = '\0';
   }
 }
+
+void
+#ifdef HAVE_STDARG_PROTOTYPES
+onig_snprintf_with_pattern(UChar buf[], int bufsize, OnigEncoding enc,
+                           UChar* pat, UChar* pat_end, const UChar *fmt, ...)
+#else
+onig_snprintf_with_pattern(buf, bufsize, enc, pat, pat_end, fmt, va_alist)
+    UChar buf[];
+    int bufsize;
+    OnigEncoding enc;
+    UChar* pat;
+    UChar* pat_end;
+    const UChar *fmt;
+    va_dcl
+#endif
+{
+  va_list args;
+  va_init_list(args, fmt);
+  onig_vsnprintf_with_pattern(buf, bufsize, enc,
+	  pat, pat_end, fmt, args);
+  va_end(args);
+}
+

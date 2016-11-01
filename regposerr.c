@@ -28,7 +28,7 @@
  */
 
 #include "config.h"
-#include "onigposix.h"
+#include "onigmoposix.h"
 
 #ifdef HAVE_STRING_H
 # include <string.h>
@@ -37,14 +37,14 @@
 #endif
 
 #if defined(__GNUC__)
-#  define ARG_UNUSED  __attribute__ ((unused))
+# define ARG_UNUSED  __attribute__ ((unused))
 #else
-#  define ARG_UNUSED
+# define ARG_UNUSED
 #endif
 
 #define numberof(array) (int)(sizeof(array) / sizeof((array)[0]))
 
-static char* ESTRING[] = {
+static const char* ESTRING[] = {
   NULL,
   "failed to match",                         /* REG_NOMATCH    */
   "Invalid regular expression",              /* REG_BADPAT     */
@@ -74,7 +74,7 @@ extern size_t
 regerror(int posix_ecode, const regex_t* reg ARG_UNUSED, char* buf,
 	 size_t size)
 {
-  char* s;
+  const char* s;
   char tbuf[35];
   size_t len;
 
