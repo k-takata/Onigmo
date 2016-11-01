@@ -21,8 +21,17 @@ sudo: false
 addons:
   apt:
     packages:
-      - lcov
+      #- lcov
       - python3
+
+  coverity_scan:
+    project:
+      name: "k-takata/Onigmo"
+      description: "Build submitted via Travis CI"
+    notification_email: kentkt@csc.jp
+    build_command_prepend: "./configure $CONFOPT; make clean"
+    build_command: "make -j 4"
+    branch_pattern: coverity_scan
 
 #before_install:
 #  - gem install lcoveralls
@@ -38,13 +47,3 @@ script:
 #after_success:
 #  - lcov -c -d .libs -o coverage.info
 #  - lcoveralls --retry-count 5 coverage.info
-
-addons:
-  coverity_scan:
-    project:
-      name: "k-takata/Onigmo"
-      description: "Build submitted via Travis CI"
-    notification_email: kentkt@csc.jp
-    build_command_prepend: "./configure $CONFOPT; make clean"
-    build_command: "make -j 4"
-    branch_pattern: coverity_scan
