@@ -28,7 +28,10 @@ def get_encoding_name(onigenc):
     arguments:
       enc -- an instance of onigmo.OnigEncoding
     """
-    return onigenc[0].name.decode()
+    name = onigenc[0].name.decode()
+    if name == "Windows-31J":
+        name = "CP932"
+    return name
 
 def is_unicode_encoding(enc):
     """Check if the encoding is Unicode encoding.
@@ -250,6 +253,8 @@ def set_encoding(enc):
     """
     global onig_encoding
 
+    if enc == None:
+        return
     if isinstance(enc, onigmo.OnigEncoding):
         onig_encoding = enc
     else:
@@ -306,33 +311,50 @@ def set_output_encoding(enc=None):
     sys.stderr = get_text_writer(sys.stderr, encoding=enc)
 
 
-def main():
-    # set encoding of the test target
-    if len(sys.argv) > 1:
-        try:
-            set_encoding(sys.argv[1])
-        except KeyError:
-            print("test target encoding error")
-            print("Usage: python testpy.py [test target encoding] [output encoding]")
-            sys.exit()
+def set_default_warning_function():
+    global _warn_func_ptr
 
-    # set encoding of stdout/stderr
-    outenc = None
-    if len(sys.argv) > 2:
-        outenc = sys.argv[2]
-    set_output_encoding(outenc)
-
-    # set warning function
     warning_enc = get_encoding_name(onig_encoding)
     if is_ascii_incompatible_encoding(warning_enc):
         warning_enc = 'ascii'
     def warn_func(str):
         print("warning: " + str.decode(warning_enc, 'replace'))
 
-    warn_func_ptr = onigmo.OnigWarnFunc(warn_func)
-    onigmo.onig_set_warn_func(warn_func_ptr)
-    onigmo.onig_set_verb_warn_func(warn_func_ptr)
+    _warn_func_ptr = onigmo.OnigWarnFunc(warn_func)
+    onigmo.onig_set_warn_func(_warn_func_ptr)
+    onigmo.onig_set_verb_warn_func(_warn_func_ptr)
 
+
+def init(enc, outenc=None):
+    """Setup test target encoding, output encoding and warning function.
+
+    arguments:
+      enc    -- Encoding used for testing.
+      outenc -- Encoding used for showing messages.
+    """
+    set_encoding(enc)
+    set_output_encoding(outenc)
+    set_default_warning_function()
+
+
+def main():
+    # encoding of the test target
+    enc = None
+    if len(sys.argv) > 1:
+        enc = sys.argv[1]
+
+    # encoding of stdout/stderr
+    outenc = None
+    if len(sys.argv) > 2:
+        outenc = sys.argv[2]
+
+    # Initialization
+    try:
+        init(enc, outenc)
+    except KeyError:
+        print("test target encoding error")
+        print("Usage: python testpy.py [test target encoding] [output encoding]")
+        sys.exit()
 
     print(onigmo.onig_copyright())
 
@@ -1178,7 +1200,7 @@ def main():
     x2("\\p{WoRd}", "a", 0, 1)  # property name is not case sensitive
     n("[[:WoRd:]]", "a", err=onigmo.ONIGERR_INVALID_POSIX_BRACKET_TYPE)   # POSIX bracket name is case sensitive
     n("(\\2)(\\1)", "")     # Issue #65
-    n("(0?0|(?(5)||)|(?(5)||))?", "", err=onigmo.ONIGERR_INVALID_CONDITION_PATTERN) # Ruby Bug#12418
+    n("(0?0|(?(1)||)|(?(1)||))?", "", err=onigmo.ONIGERR_INVALID_CONDITION_PATTERN) # Ruby Bug#12418
     n("[\\40000000000", "", err=onigmo.ONIGERR_TOO_BIG_NUMBER)  # Ruby Bug#12420
     n("[\\600000000000\n", "", err=onigmo.ONIGERR_TOO_BIG_NUMBER)   # Ruby Bug#12423
     n("[]", "", err=onigmo.ONIGERR_EMPTY_CHAR_CLASS)
@@ -1445,6 +1467,8 @@ def main():
     n("((?<x>x)|(?<y>y))(?(<x>)y|x)", "yy")
     n("(a)?(?<n>b)?(?(1)a)(?(<n>)b)", "aa", err=onigmo.ONIGERR_NUMBERED_BACKREF_OR_CALL_NOT_ALLOWED)
     x2("(a)?(?<n>b)?(?(1)a)(?(<n>)b)", "aa", 0, 2, syn=onigmo.ONIG_SYNTAX_PERL)
+    n("()(?(2))", "", err=onigmo.ONIGERR_INVALID_BACKREF)       # Issue #65
+    n("(?(700000))", "", err=onigmo.ONIGERR_INVALID_BACKREF)
 
     # Implicit-anchor optimization
     x2("(?m:.*abc)", "dddabdd\nddabc", 0, 13)   # optimized /(?m:.*abc)/ ==> /\A(?m:.*abc)/
