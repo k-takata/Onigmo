@@ -364,12 +364,14 @@ const UChar OnigEncISO_8859_1_ToUpperCaseTable[256] = {
 };
 #endif
 
+#if 0
 extern void
 onigenc_set_default_caseconv_table(const UChar* table ARG_UNUSED)
 {
   /* nothing */
   /* obsoleted. */
 }
+#endif
 
 extern UChar*
 onigenc_get_left_adjust_char_head(OnigEncoding enc, const UChar* start, const UChar* s, const UChar* end)
@@ -894,6 +896,7 @@ onigenc_with_ascii_strnicmp(OnigEncoding enc, const UChar* p, const UChar* end,
   return 0;
 }
 
+#if 0
 /* Property management */
 static int
 resize_property_list(int new_size, const OnigCodePoint*** plist, int* psize)
@@ -946,19 +949,7 @@ onigenc_property_list_add_property(UChar* name, const OnigCodePoint* prop,
 			(hash_data_type )(*pnum + ONIGENC_MAX_STD_CTYPE));
   return 0;
 }
-
-extern int
-onigenc_property_list_init(int (*f)(void))
-{
-  int r;
-
-  THREAD_ATOMIC_START;
-
-  r = f();
-
-  THREAD_ATOMIC_END;
-  return r;
-}
+#endif
 
 extern int
 onigenc_ascii_only_case_map(OnigCaseFoldType* flagP, const OnigUChar** pp, const OnigUChar* end,

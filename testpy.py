@@ -16,10 +16,11 @@ nfail = 0
 onig_encoding = onigmo.ONIG_ENCODING_EUC_JP
 
 # special syntactic settings
-_syntax_default = onigmo.OnigSyntaxType()
-onigmo.onig_copy_syntax(ctypes.byref(_syntax_default), onigmo.ONIG_SYNTAX_DEFAULT)
-_syntax_default.options &= ~onigmo.ONIG_OPTION_ASCII_RANGE
-syntax_default = ctypes.byref(_syntax_default)
+syntax_default = ctypes.byref(onigmo.OnigSyntaxType())
+onigmo.onig_copy_syntax(syntax_default, onigmo.ONIG_SYNTAX_DEFAULT)
+onigmo.onig_set_syntax_options(syntax_default,
+        onigmo.onig_get_syntax_options(syntax_default)
+            & ~onigmo.ONIG_OPTION_ASCII_RANGE)
 
 
 def get_encoding_name(onigenc):
@@ -29,8 +30,10 @@ def get_encoding_name(onigenc):
       enc -- an instance of onigmo.OnigEncoding
     """
     name = onigenc[0].name.decode()
-    if name == "Windows-31J":
-        name = "CP932"
+    encnamemap = {"Windows-31J": "CP932",
+            "ASCII-8BIT": "ASCII"}
+    if name in encnamemap:
+        name = encnamemap[name]
     return name
 
 def is_unicode_encoding(enc):
@@ -824,7 +827,8 @@ def main():
         x2("\\x00\\x00\\x8F\\xFA", "\u8ffa", 0, 1);
     elif onig_encoding == onigmo.ONIG_ENCODING_UTF8:
         x2("\\xE8\\xBF\\xBA", "\u8ffa", 0, 1);
-    elif onig_encoding == onigmo.ONIG_ENCODING_SJIS:
+    elif onig_encoding == onigmo.ONIG_ENCODING_SJIS or \
+            onig_encoding == onigmo.ONIG_ENCODING_CP932:
         x2("\\xE7\\x92", "\u8ffa", 0, 1);
     elif onig_encoding == onigmo.ONIG_ENCODING_EUC_JP:
         x2("\\xED\\xF2", "\u8ffa", 0, 1); # "迺"
@@ -1107,7 +1111,8 @@ def main():
     # additional test patterns
     if is_unicode_encoding(onig_encoding):
         x2("\\x{3042}\\x{3044}", "あい", 0, 2)
-    elif onig_encoding == onigmo.ONIG_ENCODING_SJIS:
+    elif onig_encoding == onigmo.ONIG_ENCODING_SJIS or \
+            onig_encoding == onigmo.ONIG_ENCODING_CP932:
         x2("\\x{82a0}\\x{82A2}", "あい", 0, 2)
     elif onig_encoding == onigmo.ONIG_ENCODING_EUC_JP:
         x2("\\x{a4a2}\\x{A4A4}", "あい", 0, 2)
@@ -1206,6 +1211,8 @@ def main():
     n("[]", "", err=onigmo.ONIGERR_EMPTY_CHAR_CLASS)
     n("[c-a]", "", err=onigmo.ONIGERR_EMPTY_RANGE_IN_CHAR_CLASS)
     x2("[[:ab:\\x{30}]]+", ":ab0x", 0, 4)
+    x2("[[:x\\]:]+", "[x:]", 0, 4)
+    x2("[!--x]+", "!-x", 0, 3)
     n("\\x{FFFFFFFF}", "", err=onigmo.ONIGERR_TOO_BIG_WIDE_CHAR_VALUE);
     n("\\x{100000000}", "", err=onigmo.ONIGERR_TOO_LONG_WIDE_CHAR_VALUE);
     x2("\\u0026", "\u0026", 0, 1)
@@ -1224,6 +1231,15 @@ def main():
     n("\\p{あ}", "", err=onigmo.ONIGERR_INVALID_CHAR_PROPERTY_NAME)
     if is_unicode_encoding(onig_encoding):
         n("\\p{\U00025771}", "", err=onigmo.ONIGERR_INVALID_CHAR_PROPERTY_NAME)
+    if onig_encoding == onigmo.ONIG_ENCODING_UTF8:
+        x2("[\\xce\\xb1\\xce\\xb2]", "β", 0, 1)
+    elif onig_encoding == onigmo.ONIG_ENCODING_SJIS or \
+            onig_encoding == onigmo.ONIG_ENCODING_CP932:
+        n("[\\x84A]", "", err=onigmo.ONIGERR_TOO_SHORT_MULTI_BYTE_STRING)
+    elif onig_encoding == onigmo.ONIG_ENCODING_EUC_JP:
+        n("[\\xAAA]", "", err=onigmo.ONIGERR_TOO_SHORT_MULTI_BYTE_STRING)
+    elif is_ascii_incompatible_encoding(onig_encoding):
+        n("[\\x420]", "", err=onigmo.ONIGERR_TOO_SHORT_MULTI_BYTE_STRING)
 
     # ONIG_OPTION_FIND_LONGEST option
     x2("foo|foobar", "foobar", 0, 3)
@@ -1408,6 +1424,7 @@ def main():
     x2("(?P<n>|\\((?P>n)\\))+$", "()(())", 0, 6, syn=onigmo.ONIG_SYNTAX_PERL);
     x2("((?P<name1>\\d)|(?P<name2>\\w))((?P=name1)|(?P=name2))", "ff", 0, 2, syn=onigmo.ONIG_SYNTAX_PERL);
     n("(?P", "", syn=onigmo.ONIG_SYNTAX_PERL, err=onigmo.ONIGERR_UNDEFINED_GROUP_OPTION)
+    n("(?PX", "", syn=onigmo.ONIG_SYNTAX_PERL, err=onigmo.ONIGERR_UNDEFINED_GROUP_OPTION)
 
     # Fullwidth Alphabet
     n("ａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ", "ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺ");
@@ -1532,6 +1549,16 @@ def main():
     n("^a*$", "a" * 200 + "b")
     n("^a*$", "a" * 2000 + "b", execerr=onigmo.ONIGERR_MATCH_STACK_LIMIT_OVER)
     onigmo.onig_set_match_stack_limit_size(0)
+
+    # syntax functions
+    onigmo.onig_set_syntax_op(syntax_default,
+        onigmo.onig_get_syntax_op(onigmo.ONIG_SYNTAX_DEFAULT))
+    onigmo.onig_set_syntax_op2(syntax_default,
+        onigmo.onig_get_syntax_op2(onigmo.ONIG_SYNTAX_DEFAULT))
+    onigmo.onig_set_syntax_behavior(syntax_default,
+        onigmo.onig_get_syntax_behavior(onigmo.ONIG_SYNTAX_DEFAULT))
+    onigmo.onig_set_default_syntax(None)
+
 
     print("\nEncoding:", get_encoding_name(onig_encoding))
     print("RESULT   SUCC: %d,  FAIL: %d,  ERROR: %d      (by Onigmo %s)" % (

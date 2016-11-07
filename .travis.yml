@@ -13,8 +13,7 @@ env:
     - secure: "i6k8tUrMbZO1bjHojJgwpnIMk9HyrFfpG8StlktUvkWPmmSIt7BxtW4cXLAQQh0NhTCxBRLE/teXXs19Wa/YP8VIjWSTI6B7U1WfZAmdjM2IVLwZqkj8TyYITiGrcjJCMe2sVqADyU10jwUwaMENiRhmFbbhYQQY10tpjkb3Sec="
   matrix:
     #- CFLAGS=--coverage CONFOPT=
-    #- CFLAGS=--coverage CONFOPT=--enable-multithread
-    - CONFOPT=--enable-multithread
+    - CONFOPT=
 
 sudo: false
 

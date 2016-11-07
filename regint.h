@@ -73,16 +73,13 @@
 #define USE_MONOMANIAC_CHECK_CAPTURES_IN_ENDLESS_REPEAT  /* /(?:()|())*\2/ */
 #define USE_NEWLINE_AT_END_OF_STRING_HAS_EMPTY_LINE     /* /\n$/ =~ "\n" */
 #define USE_WARNING_REDUNDANT_NESTED_REPEAT_OPERATOR
-/* #define USE_RECOMPILE_API */
 /* !!! moved to regenc.h. */ /* #define USE_CRNL_AS_LINE_TERMINATOR */
 #define USE_NO_INVALID_QUANTIFIER
 
 /* internal config */
-#define USE_PARSE_TREE_NODE_RECYCLE
 #define USE_OP_PUSH_OR_JUMP_EXACT
 #define USE_QTFR_PEEK_NEXT
 #define USE_ST_LIBRARY
-#define USE_SHARED_CCLASS_TABLE
 #define USE_SUNDAY_QUICK_SEARCH
 
 #define INIT_MATCH_STACK_SIZE                     160
@@ -113,9 +110,7 @@
 # include "config.h"
 #endif /* RUBY */
 
-#ifdef HAVE_STDARG_PROTOTYPES
-# include <stdarg.h>
-#endif
+#include <stdarg.h>
 
 /* */
 /* escape other system UChar definition */
@@ -134,52 +129,6 @@
 #define USE_FIND_LONGEST_SEARCH_ALL_OF_RANGE
 /* #define USE_COMBINATION_EXPLOSION_CHECK */     /* (X*)* */
 
-/* multithread config */
-/* #define USE_MULTI_THREAD_SYSTEM */
-/* #define USE_DEFAULT_MULTI_THREAD_SYSTEM */
-
-#if defined(USE_MULTI_THREAD_SYSTEM) \
-  && defined(USE_DEFAULT_MULTI_THREAD_SYSTEM)
-
-# ifdef _WIN32
-#  define WIN32_LEAN_AND_MEAN
-#  include <windows.h>
-extern CRITICAL_SECTION gOnigMutex;
-#  define THREAD_SYSTEM_INIT      InitializeCriticalSection(&gOnigMutex)
-#  define THREAD_SYSTEM_END       DeleteCriticalSection(&gOnigMutex)
-#  define THREAD_ATOMIC_START     EnterCriticalSection(&gOnigMutex)
-#  define THREAD_ATOMIC_END       LeaveCriticalSection(&gOnigMutex)
-#  define THREAD_PASS             Sleep(0)
-# else /* _WIN32 */
-#  include <pthread.h>
-#  include <sched.h>
-extern pthread_mutex_t gOnigMutex;
-#  define THREAD_SYSTEM_INIT      pthread_mutex_init(&gOnigMutex, NULL)
-#  define THREAD_SYSTEM_END       pthread_mutex_destroy(&gOnigMutex)
-#  define THREAD_ATOMIC_START     pthread_mutex_lock(&gOnigMutex)
-#  define THREAD_ATOMIC_END       pthread_mutex_unlock(&gOnigMutex)
-#  define THREAD_PASS             sched_yield()
-# endif /* _WIN32 */
-
-#else /* USE_DEFAULT_MULTI_THREAD_SYSTEM */
-
-# ifndef THREAD_SYSTEM_INIT
-#  define THREAD_SYSTEM_INIT      /* depend on thread system */
-# endif
-# ifndef THREAD_SYSTEM_END
-#  define THREAD_SYSTEM_END       /* depend on thread system */
-# endif
-# ifndef THREAD_ATOMIC_START
-#  define THREAD_ATOMIC_START     /* depend on thread system */
-# endif
-# ifndef THREAD_ATOMIC_END
-#  define THREAD_ATOMIC_END       /* depend on thread system */
-# endif
-# ifndef THREAD_PASS
-#  define THREAD_PASS             /* depend on thread system */
-# endif
-
-#endif /* USE_DEFAULT_MULTI_THREAD_SYSTEM */
 
 #ifndef xmalloc
 # define xmalloc     malloc
@@ -240,7 +189,6 @@ extern pthread_mutex_t gOnigMutex;
 #define STATE_CHECK_STRING_THRESHOLD_LEN             7
 #define STATE_CHECK_BUFF_MAX_SIZE               0x4000
 
-#define THREAD_PASS_LIMIT_COUNT     8
 #define xmemset     memset
 #define xmemcpy     memcpy
 #define xmemmove    memmove
@@ -254,40 +202,13 @@ extern pthread_mutex_t gOnigMutex;
 #endif
 
 
-#if defined(USE_RECOMPILE_API) && defined(USE_MULTI_THREAD_SYSTEM)
-# define ONIG_STATE_INC(reg) (reg)->state++
-# define ONIG_STATE_DEC(reg) (reg)->state--
-
-# define ONIG_STATE_INC_THREAD(reg) do {\
-  THREAD_ATOMIC_START;\
-  (reg)->state++;\
-  THREAD_ATOMIC_END;\
-} while(0)
-# define ONIG_STATE_DEC_THREAD(reg) do {\
-  THREAD_ATOMIC_START;\
-  (reg)->state--;\
-  THREAD_ATOMIC_END;\
-} while(0)
-#else
-# define ONIG_STATE_INC(reg)         /* Nothing */
-# define ONIG_STATE_DEC(reg)         /* Nothing */
-# define ONIG_STATE_INC_THREAD(reg)  /* Nothing */
-# define ONIG_STATE_DEC_THREAD(reg)  /* Nothing */
-#endif /* USE_RECOMPILE_API && USE_MULTI_THREAD_SYSTEM */
-
-#ifdef HAVE_STDLIB_H
-# include <stdlib.h>
-#endif
+#include <stdlib.h>
 
 #if defined(HAVE_ALLOCA_H) && (defined(_AIX) || !defined(__GNUC__))
 # include <alloca.h>
 #endif
 
-#ifdef HAVE_STRING_H
-# include <string.h>
-#else
-# include <strings.h>
-#endif
+#include <string.h>
 
 #include <ctype.h>
 #ifdef HAVE_SYS_TYPES_H
@@ -302,9 +223,7 @@ extern pthread_mutex_t gOnigMutex;
 # include <inttypes.h>
 #endif
 
-#ifdef STDC_HEADERS
-# include <stddef.h>
-#endif
+#include <stddef.h>
 
 #ifdef _WIN32
 # include <malloc.h>	/* for alloca() */
@@ -950,27 +869,25 @@ typedef struct {
 extern OnigOpInfoType OnigOpInfo[];
 
 
-extern void onig_print_compiled_byte_code P_((FILE* f, UChar* bp, UChar* bpend, UChar** nextp, OnigEncoding enc));
+extern void onig_print_compiled_byte_code(FILE* f, UChar* bp, UChar* bpend, UChar** nextp, OnigEncoding enc);
 
 # ifdef ONIG_DEBUG_STATISTICS
-extern void onig_statistics_init P_((void));
-extern void onig_print_statistics P_((FILE* f));
+extern void onig_statistics_init(void);
+extern void onig_print_statistics(FILE* f);
 # endif
 #endif
 
-extern UChar* onig_error_code_to_format P_((OnigPosition code));
-extern void onig_vsnprintf_with_pattern P_((UChar buf[], int bufsize, OnigEncoding enc, UChar* pat, UChar* pat_end, const UChar *fmt, va_list args));
-extern void onig_snprintf_with_pattern PV_((UChar buf[], int bufsize, OnigEncoding enc, UChar* pat, UChar* pat_end, const UChar *fmt, ...));
-extern int  onig_bbuf_init P_((BBuf* buf, OnigDistance size));
-extern int  onig_compile P_((regex_t* reg, const UChar* pattern, const UChar* pattern_end, OnigErrorInfo* einfo));
+extern UChar* onig_error_code_to_format(OnigPosition code);
+extern void onig_vsnprintf_with_pattern(UChar buf[], int bufsize, OnigEncoding enc, UChar* pat, UChar* pat_end, const UChar *fmt, va_list args);
+extern void onig_snprintf_with_pattern(UChar buf[], int bufsize, OnigEncoding enc, UChar* pat, UChar* pat_end, const UChar *fmt, ...);
+extern int  onig_bbuf_init(BBuf* buf, OnigDistance size);
+extern int  onig_compile(regex_t* reg, const UChar* pattern, const UChar* pattern_end, OnigErrorInfo* einfo);
 #ifdef RUBY
-extern int  onig_compile_ruby P_((regex_t* reg, const UChar* pattern, const UChar* pattern_end, OnigErrorInfo* einfo, const char *sourcefile, int sourceline));
+extern int  onig_compile_ruby(regex_t* reg, const UChar* pattern, const UChar* pattern_end, OnigErrorInfo* einfo, const char *sourcefile, int sourceline);
 #endif
-extern void onig_chain_reduce P_((regex_t* reg));
-extern void onig_chain_link_add P_((regex_t* to, regex_t* add));
-extern void onig_transfer P_((regex_t* to, regex_t* from));
-extern int  onig_is_code_in_cc P_((OnigEncoding enc, OnigCodePoint code, CClassNode* cc));
-extern int  onig_is_code_in_cc_len P_((int enclen, OnigCodePoint code, CClassNode* cc));
+extern void onig_transfer(regex_t* to, regex_t* from);
+extern int  onig_is_code_in_cc(OnigEncoding enc, OnigCodePoint code, CClassNode* cc);
+extern int  onig_is_code_in_cc_len(int enclen, OnigCodePoint code, CClassNode* cc);
 
 /* strend hash */
 typedef void hash_table_type;
@@ -981,32 +898,13 @@ typedef void hash_table_type;
 #endif
 typedef st_data_t hash_data_type;
 
-extern hash_table_type* onig_st_init_strend_table_with_size P_((st_index_t size));
-extern int onig_st_lookup_strend P_((hash_table_type* table, const UChar* str_key, const UChar* end_key, hash_data_type *value));
-extern int onig_st_insert_strend P_((hash_table_type* table, const UChar* str_key, const UChar* end_key, hash_data_type value));
-
-/* encoding property management */
-#define PROPERTY_LIST_ADD_PROP(Name, CR) \
-  r = onigenc_property_list_add_property((UChar* )Name, CR,\
-	      &PropertyNameTable, &PropertyList, &PropertyListNum,\
-	      &PropertyListSize);\
-  if (r != 0) goto end
-
-#define PROPERTY_LIST_INIT_CHECK \
-  if (PropertyInited == 0) {\
-    int r = onigenc_property_list_init(init_property_list);\
-    if (r != 0) return r;\
-  }
-
-extern int onigenc_property_list_add_property P_((UChar* name, const OnigCodePoint* prop, hash_table_type **table, const OnigCodePoint*** plist, int *pnum, int *psize));
-
-typedef int (*ONIGENC_INIT_PROPERTY_LIST_FUNC_TYPE)(void);
-
-extern int onigenc_property_list_init P_((ONIGENC_INIT_PROPERTY_LIST_FUNC_TYPE));
+extern hash_table_type* onig_st_init_strend_table_with_size(st_index_t size);
+extern int onig_st_lookup_strend(hash_table_type* table, const UChar* str_key, const UChar* end_key, hash_data_type *value);
+extern int onig_st_insert_strend(hash_table_type* table, const UChar* str_key, const UChar* end_key, hash_data_type value);
 
 #ifdef RUBY
-extern size_t onig_memsize P_((const regex_t *reg));
-extern size_t onig_region_memsize P_((const struct re_registers *regs));
+extern size_t onig_memsize(const regex_t *reg);
+extern size_t onig_region_memsize(const struct re_registers *regs);
 #endif
 
 RUBY_SYMBOL_EXPORT_END

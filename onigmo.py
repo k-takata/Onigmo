@@ -436,7 +436,7 @@ ONIGERR_NOT_SUPPORTED_ENCODING_COMBINATION              =  -402
 ONIGERR_INVALID_COMBINATION_OF_OPTIONS                  =  -403
 
 # errors related to thread
-ONIGERR_OVER_THREAD_PASS_LIMIT_COUNT                    = -1001
+#ONIGERR_OVER_THREAD_PASS_LIMIT_COUNT                    = -1001
 
 
 OnigWarnFunc = ctypes.CFUNCTYPE(None, ctypes.c_char_p)
@@ -478,8 +478,6 @@ libonig.onig_free.argtypes = [OnigRegex]
 onig_free = libonig.onig_free
 
 # onig_free_body
-# onig_recompile
-# onig_recompile_deluxe
 
 # onig_search
 libonig.onig_search.argtypes = [OnigRegex,
@@ -525,7 +523,11 @@ onig_region_free = libonig.onig_region_free
 # onig_get_options
 # onig_get_case_fold_flag
 # onig_get_syntax
+
 # onig_set_default_syntax
+libonig.onig_set_default_syntax.argtypes = [ctypes.POINTER(OnigSyntaxType)]
+libonig.onig_set_default_syntax.restype = ctypes.c_int
+onig_set_default_syntax = libonig.onig_set_default_syntax
 
 # onig_copy_syntax
 libonig.onig_copy_syntax.argtypes = [ctypes.POINTER(OnigSyntaxType),
@@ -533,13 +535,45 @@ libonig.onig_copy_syntax.argtypes = [ctypes.POINTER(OnigSyntaxType),
 onig_copy_syntax = libonig.onig_copy_syntax
 
 # onig_get_syntax_op
+libonig.onig_get_syntax_op.argtypes = [ctypes.POINTER(OnigSyntaxType)]
+libonig.onig_get_syntax_op.restype = ctypes.c_int
+onig_get_syntax_op = libonig.onig_get_syntax_op
+
 # onig_get_syntax_op2
+libonig.onig_get_syntax_op2.argtypes = [ctypes.POINTER(OnigSyntaxType)]
+libonig.onig_get_syntax_op2.restype = ctypes.c_int
+onig_get_syntax_op2 = libonig.onig_get_syntax_op2
+
 # onig_get_syntax_behavior
+libonig.onig_get_syntax_behavior.argtypes = [ctypes.POINTER(OnigSyntaxType)]
+libonig.onig_get_syntax_behavior.restype = ctypes.c_int
+onig_get_syntax_behavior = libonig.onig_get_syntax_behavior
+
 # onig_get_syntax_options
+libonig.onig_get_syntax_options.argtypes = [ctypes.POINTER(OnigSyntaxType)]
+libonig.onig_get_syntax_options.restype = ctypes.c_int
+onig_get_syntax_options = libonig.onig_get_syntax_options
+
 # onig_set_syntax_op
+libonig.onig_set_syntax_op.argtypes = [ctypes.POINTER(OnigSyntaxType),
+        ctypes.c_int]
+onig_set_syntax_op = libonig.onig_set_syntax_op
+
 # onig_set_syntax_op2
+libonig.onig_set_syntax_op2.argtypes = [ctypes.POINTER(OnigSyntaxType),
+        ctypes.c_int]
+onig_set_syntax_op2 = libonig.onig_set_syntax_op2
+
 # onig_set_syntax_behavior
+libonig.onig_set_syntax_behavior.argtypes = [ctypes.POINTER(OnigSyntaxType),
+        ctypes.c_int]
+onig_set_syntax_behavior = libonig.onig_set_syntax_behavior
+
 # onig_set_syntax_options
+libonig.onig_set_syntax_options.argtypes = [ctypes.POINTER(OnigSyntaxType),
+        ctypes.c_int]
+onig_set_syntax_options = libonig.onig_set_syntax_options
+
 # onig_set_meta_char
 # onig_copy_encoding
 # onig_get_default_case_fold_flag

@@ -36,12 +36,7 @@
 # define USE_MATCH_RANGE_MUST_BE_INSIDE_OF_SPECIFIED_RANGE
 #endif
 
-#ifdef USE_DIRECT_THREADED_VM
-# if (USE_DIRECT_THREADED_VM != 1) && (USE_DIRECT_THREADED_VM != 0)
-#  undef USE_DIRECT_THREADED_VM
-#  define USE_DIRECT_THREADED_VM 1
-# endif
-#else
+#ifndef USE_DIRECT_THREADED_VM
 # ifdef __GNUC__
 #  define USE_DIRECT_THREADED_VM 1
 # else
@@ -1401,6 +1396,7 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
 #endif
 
 #if USE_DIRECT_THREADED_VM
+# define OP_OFFSET  1
 # define VM_LOOP JUMP;
 # define VM_LOOP_END
 # define CASE(x) L_##x: sbegin = s; OPCODE_EXEC_HOOK;
@@ -1571,8 +1567,9 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
     &&L_DEFAULT
 # endif
   };
-#else
+#else /* USE_DIRECT_THREADED_VM */
 
+# define OP_OFFSET  0
 # define VM_LOOP                                \
   while (1) {                                   \
   OPCODE_EXEC_HOOK;                             \
@@ -1583,12 +1580,19 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
 # define DEFAULT default:
 # define NEXT break
 # define JUMP continue; break
-#endif
+#endif /* USE_DIRECT_THREADED_VM */
 
 
 #ifdef USE_SUBEXP_CALL
-  /* Stack #0 is used to store the pattern itself and used for (?R), \g<0>, etc. */
-  n = reg->num_repeat + (reg->num_mem + 1) * 2;
+/* Stack #0 is used to store the pattern itself and used for (?R), \g<0>,
+   etc. Additional space is required. */
+# define ADD_NUMMEM 1
+#else
+/* Stack #0 not is used. */
+# define ADD_NUMMEM 0
+#endif
+
+  n = reg->num_repeat + (reg->num_mem + ADD_NUMMEM) * 2;
 
   STACK_INIT(alloca_base, xmalloc_base, n, INIT_MATCH_STACK_SIZE);
   pop_level = reg->stack_pop_level;
@@ -1596,30 +1600,20 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
   repeat_stk = (OnigStackIndex* )alloca_base;
 
   mem_start_stk = (OnigStackIndex* )(repeat_stk + reg->num_repeat);
-  mem_end_stk   = mem_start_stk + (num_mem + 1);
-#else /* USE_SUBEXP_CALL */
-  /* Stack #0 not is used. */
-  n = reg->num_repeat + reg->num_mem * 2;
-
-  STACK_INIT(alloca_base, xmalloc_base, n, INIT_MATCH_STACK_SIZE);
-  pop_level = reg->stack_pop_level;
-  num_mem = reg->num_mem;
-  repeat_stk = (OnigStackIndex* )alloca_base;
-
-  mem_start_stk = (OnigStackIndex* )(repeat_stk + reg->num_repeat);
-  mem_end_stk   = mem_start_stk + num_mem;
-  mem_start_stk--; /* for index start from 1,
-		      mem_start_stk[1]..mem_start_stk[num_mem] */
-  mem_end_stk--;   /* for index start from 1,
-		      mem_end_stk[1]..mem_end_stk[num_mem] */
-#endif /* USE_SUBEXP_CALL */
+  mem_end_stk   = mem_start_stk + (num_mem + ADD_NUMMEM);
   {
     OnigStackIndex *pp = mem_start_stk;
-    for (; pp < (repeat_stk + n); pp+=2) {
+    for (; pp < repeat_stk + n; pp += 2) {
       pp[0] = INVALID_STACK_INDEX;
       pp[1] = INVALID_STACK_INDEX;
     }
   }
+#ifndef USE_SUBEXP_CALL
+  mem_start_stk--; /* for index start from 1,
+		      mem_start_stk[1]..mem_start_stk[num_mem] */
+  mem_end_stk--;   /* for index start from 1,
+		      mem_end_stk[1]..mem_end_stk[num_mem] */
+#endif
 
 #ifdef ONIG_DEBUG_MATCH
   fprintf(stderr, "match_at: str: %"PRIdPTR" (%p), end: %"PRIdPTR" (%p), start: %"PRIdPTR" (%p), sprev: %"PRIdPTR" (%p)\n",
@@ -1639,7 +1633,7 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
     if (s) {                                                            \
       UChar *op, *q, *bp, buf[50];                                      \
       int len;                                                          \
-      op = p - USE_DIRECT_THREADED_VM;                                  \
+      op = p - OP_OFFSET;                                               \
       fprintf(stderr, "%4"PRIdPTR"> \"", (*op == OP_FINISH) ? (ptrdiff_t )-1 : s - str); \
       bp = buf;                                                         \
       q = s;                                                            \
@@ -3694,6 +3688,7 @@ bm_search_ic(regex_t* reg, const UChar* target, const UChar* target_end,
 }
 #endif /* USE_SUNDAY_QUICK_SEARCH */
 
+#ifdef USE_INT_MAP_BACKWARD
 static int
 set_bm_backward_skip(UChar* s, UChar* end, OnigEncoding enc ARG_UNUSED,
 		     int** skip)
@@ -3743,6 +3738,7 @@ bm_search_backward(regex_t* reg, const UChar* target, const UChar* target_end,
 
   return (UChar* )NULL;
 }
+#endif
 
 static UChar*
 map_search(OnigEncoding enc, UChar map[],
@@ -3781,31 +3777,6 @@ onig_match(regex_t* reg, const UChar* str, const UChar* end, const UChar* at, On
   UChar *prev;
   OnigMatchArg msa;
 
-#if defined(USE_RECOMPILE_API) && defined(USE_MULTI_THREAD_SYSTEM)
- start:
-  THREAD_ATOMIC_START;
-  if (ONIG_STATE(reg) >= ONIG_STATE_NORMAL) {
-    ONIG_STATE_INC(reg);
-    if (IS_NOT_NULL(reg->chain) && ONIG_STATE(reg) == ONIG_STATE_NORMAL) {
-      onig_chain_reduce(reg);
-      ONIG_STATE_INC(reg);
-    }
-  }
-  else {
-    int n;
-
-    THREAD_ATOMIC_END;
-    n = 0;
-    while (ONIG_STATE(reg) < ONIG_STATE_NORMAL) {
-      if (++n > THREAD_PASS_LIMIT_COUNT)
-	return ONIGERR_OVER_THREAD_PASS_LIMIT_COUNT;
-      THREAD_PASS;
-    }
-    goto start;
-  }
-  THREAD_ATOMIC_END;
-#endif /* USE_RECOMPILE_API && USE_MULTI_THREAD_SYSTEM */
-
   MATCH_ARG_INIT(msa, option, region, at, at);
 #ifdef USE_COMBINATION_EXPLOSION_CHECK
   {
@@ -3834,7 +3805,6 @@ onig_match(regex_t* reg, const UChar* str, const UChar* end, const UChar* at, On
   }
 
   MATCH_ARG_FREE(msa);
-  ONIG_STATE_DEC_THREAD(reg);
   return r;
 }
 
@@ -3975,7 +3945,6 @@ backward_search_range(regex_t* reg, const UChar* str, const UChar* end,
 		      UChar* s, const UChar* range, UChar* adjrange,
 		      UChar** low, UChar** high)
 {
-  int r;
   UChar *p;
 
   range += reg->dmin;
@@ -3999,7 +3968,9 @@ backward_search_range(regex_t* reg, const UChar* str, const UChar* end,
 
   case ONIG_OPTIMIZE_EXACT_BM:
   case ONIG_OPTIMIZE_EXACT_BM_NOT_REV:
+#ifdef USE_INT_MAP_BACKWARD
     if (IS_NULL(reg->int_map_backward)) {
+      int r;
       if (s - range < BM_BACKWARD_SEARCH_LENGTH_THRESHOLD)
 	goto exact_method;
 
@@ -4009,6 +3980,9 @@ backward_search_range(regex_t* reg, const UChar* str, const UChar* end,
     }
     p = bm_search_backward(reg, reg->exact, reg->exact_end, range, adjrange,
 			   end, p);
+#else
+    goto exact_method;
+#endif
     break;
 
   case ONIG_OPTIMIZE_MAP:
@@ -4092,31 +4066,6 @@ onig_search_gpos(regex_t* reg, const UChar* str, const UChar* end,
   const UChar *orig_start = start;
   const UChar *orig_range = range;
 #endif
-
-#if defined(USE_RECOMPILE_API) && defined(USE_MULTI_THREAD_SYSTEM)
- start:
-  THREAD_ATOMIC_START;
-  if (ONIG_STATE(reg) >= ONIG_STATE_NORMAL) {
-    ONIG_STATE_INC(reg);
-    if (IS_NOT_NULL(reg->chain) && ONIG_STATE(reg) == ONIG_STATE_NORMAL) {
-      onig_chain_reduce(reg);
-      ONIG_STATE_INC(reg);
-    }
-  }
-  else {
-    int n;
-
-    THREAD_ATOMIC_END;
-    n = 0;
-    while (ONIG_STATE(reg) < ONIG_STATE_NORMAL) {
-      if (++n > THREAD_PASS_LIMIT_COUNT)
-	return ONIGERR_OVER_THREAD_PASS_LIMIT_COUNT;
-      THREAD_PASS;
-    }
-    goto start;
-  }
-  THREAD_ATOMIC_END;
-#endif /* USE_RECOMPILE_API && USE_MULTI_THREAD_SYSTEM */
 
 #ifdef ONIG_DEBUG_SEARCH
   fprintf(stderr,
@@ -4449,7 +4398,6 @@ onig_search_gpos(regex_t* reg, const UChar* str, const UChar* end,
 
  finish:
   MATCH_ARG_FREE(msa);
-  ONIG_STATE_DEC_THREAD(reg);
 
   /* If result is mismatch and no FIND_NOT_EMPTY option,
      then the region is not set in match_at(). */
@@ -4470,7 +4418,6 @@ onig_search_gpos(regex_t* reg, const UChar* str, const UChar* end,
  mismatch_no_msa:
   r = ONIG_MISMATCH;
  finish_no_msa:
-  ONIG_STATE_DEC_THREAD(reg);
 #ifdef ONIG_DEBUG
   if (r != ONIG_MISMATCH)
     fprintf(stderr, "onig_search: error %"PRIdPTRDIFF"\n", r);
@@ -4478,7 +4425,6 @@ onig_search_gpos(regex_t* reg, const UChar* str, const UChar* end,
   return r;
 
  match:
-  ONIG_STATE_DEC_THREAD(reg);
   MATCH_ARG_FREE(msa);
   return s - str;
 }
