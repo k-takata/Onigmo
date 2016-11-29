@@ -5,6 +5,9 @@ product_name = onigmo
 # Comment out the next line, if you don't want to use LTCG.
 USE_LTCG = 1
 
+# Comment out the next line, if you don't want to use multiprocess build.
+USE_MP = 1
+
 # Enable the next line, if you want to use a .def file.
 #DEFFILE = onigmo.def
 
@@ -35,7 +38,6 @@ RMDIR   = rd /s/q
 CC = cl
 RC = rc
 DEFS = -DHAVE_CONFIG_H -DEXPORT
-RUBYDIR = ..
 
 !if "$(ARCH)"=="x86"
 PYTHON = py -3.4-32
@@ -62,6 +64,7 @@ WORKDIR = build_$(ARCH)$(DBGFLG)
 !endif
 !endif
 
+!ifndef DEBUG
 !if DEFINED(USE_LTCG) && $(USE_LTCG)
 # Use LTCG (Link Time Code Generation).
 # Check if cl.exe is newer than VC++ 7.0 (_MSC_VER >= 1300).
@@ -71,12 +74,21 @@ ARLIB_FLAGS = $(ARLIB_FLAGS) -LTCG
 ARDLL_FLAGS = $(ARDLL_FLAGS) -LTCG
 !endif
 !endif
+!endif
+
+!if DEFINED(USE_MP) && $(USE_MP)
+# Enable multiprocess build on VC2010+.
+!if $(_MSC_VER) >= 1600
+CFLAGS = $(CFLAGS) -MP
+!endif
+!endif
 
 !ifdef DEBUG
 # Enable debug information.
-CFLAGS = $(CFLAGS) -Zi -DDEBUG=1 -D_DEBUG=1
+CFLAGS = $(CFLAGS) -Zi -DDEBUG=1 -D_DEBUG=1 -MTd
 # Debug flags. (see regint.h)
 #CFLAGS = $(CFLAGS) -DONIG_DEBUG_PARSE_TREE -DONIG_DEBUG_COMPILE -DONIG_DEBUG_SEARCH -DONIG_DEBUG_MATCH -DONIG_DONT_OPTIMIZE
+ARDLL_FLAGS = -MTd $(ARDLL_FLAGS)
 !endif
 
 !ifdef DEFFILE
@@ -135,7 +147,6 @@ onigsources  = regerror.c regparse.c regext.c regcomp.c regexec.c regenc.c \
 	       regsyntax.c regtrav.c regversion.c reggnu.c st.c
 posixsources = regposix.c regposerr.c
 libsources   = $(posixsources) $(onigsources)
-rubysources  = $(onigsources)
 
 encdir       = enc
 distfiles    = README COPYING HISTORY \
@@ -240,10 +251,6 @@ $(WORKDIR)\onigmo.res: win32\onigmo.rc onigmo.h
 
 # Tests
 test: all ctest utest ptest pytest
-
-# Ruby test
-rtest:
-	$(RUBYDIR)\win32\ruby -w -Ke test.rb
 
 # C library test
 ctest: $(WORKDIR)\$(testc).exe

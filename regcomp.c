@@ -254,6 +254,7 @@ add_mem_num(regex_t* reg, int num)
   return 0;
 }
 
+#if 0
 static int
 add_pointer(regex_t* reg, void* addr)
 {
@@ -262,6 +263,7 @@ add_pointer(regex_t* reg, void* addr)
   BBUF_ADD(reg, &ptr, SIZE_POINTER);
   return 0;
 }
+#endif
 
 static int
 add_option(regex_t* reg, OnigOptionType option)
@@ -582,11 +584,6 @@ compile_length_cclass_node(CClassNode* cc, regex_t* reg)
 {
   int len;
 
-  if (IS_NCCLASS_SHARE(cc)) {
-    len = SIZE_OPCODE + SIZE_POINTER;
-    return len;
-  }
-
   if (IS_NULL(cc->mbuf)) {
     len = SIZE_OPCODE + SIZE_BITSET;
   }
@@ -611,12 +608,6 @@ static int
 compile_cclass_node(CClassNode* cc, regex_t* reg)
 {
   int r;
-
-  if (IS_NCCLASS_SHARE(cc)) {
-    add_opcode(reg, OP_CCLASS_NODE);
-    r = add_pointer(reg, cc);
-    return r;
-  }
 
   if (IS_NULL(cc->mbuf)) {
     if (IS_NCCLASS_NOT(cc))
@@ -1001,9 +992,12 @@ compile_length_quantifier_node(QtfrNode* qn, regex_t* reg)
     }
 
     if (qn->greedy) {
+#ifdef USE_OP_PUSH_OR_JUMP_EXACT
       if (IS_NOT_NULL(qn->head_exact))
 	len += SIZE_OP_PUSH_OR_JUMP_EXACT1 + mod_tlen + SIZE_OP_JUMP;
-      else if (IS_NOT_NULL(qn->next_head_exact))
+      else
+#endif
+      if (IS_NOT_NULL(qn->next_head_exact))
 	len += SIZE_OP_PUSH_IF_PEEK_NEXT + mod_tlen + SIZE_OP_JUMP;
       else
 	len += SIZE_OP_PUSH + mod_tlen + SIZE_OP_JUMP;
@@ -1069,9 +1063,12 @@ compile_quantifier_node(QtfrNode* qn, regex_t* reg)
       (qn->lower <= 1 || tlen * qn->lower <= QUANTIFIER_EXPAND_LIMIT_SIZE)) {
     if (qn->lower == 1 && tlen > QUANTIFIER_EXPAND_LIMIT_SIZE) {
       if (qn->greedy) {
+#ifdef USE_OP_PUSH_OR_JUMP_EXACT
 	if (IS_NOT_NULL(qn->head_exact))
 	  r = add_opcode_rel_addr(reg, OP_JUMP, SIZE_OP_PUSH_OR_JUMP_EXACT1);
-	else if (IS_NOT_NULL(qn->next_head_exact))
+	else
+#endif
+	if (IS_NOT_NULL(qn->next_head_exact))
 	  r = add_opcode_rel_addr(reg, OP_JUMP, SIZE_OP_PUSH_IF_PEEK_NEXT);
 	else
 	  r = add_opcode_rel_addr(reg, OP_JUMP, SIZE_OP_PUSH);
@@ -1087,6 +1084,7 @@ compile_quantifier_node(QtfrNode* qn, regex_t* reg)
     }
 
     if (qn->greedy) {
+#ifdef USE_OP_PUSH_OR_JUMP_EXACT
       if (IS_NOT_NULL(qn->head_exact)) {
 	r = add_opcode_rel_addr(reg, OP_PUSH_OR_JUMP_EXACT1,
 			     mod_tlen + SIZE_OP_JUMP);
@@ -1097,7 +1095,9 @@ compile_quantifier_node(QtfrNode* qn, regex_t* reg)
 	r = add_opcode_rel_addr(reg, OP_JUMP,
 	-(mod_tlen + (int )SIZE_OP_JUMP + (int )SIZE_OP_PUSH_OR_JUMP_EXACT1));
       }
-      else if (IS_NOT_NULL(qn->next_head_exact)) {
+      else
+#endif
+      if (IS_NOT_NULL(qn->next_head_exact)) {
 	r = add_opcode_rel_addr(reg, OP_PUSH_IF_PEEK_NEXT,
 				mod_tlen + SIZE_OP_JUMP);
 	if (r) return r;
@@ -2748,9 +2748,11 @@ get_head_value_node(Node* node, int exact, regex_t* reg)
     {
       QtfrNode* qn = NQTFR(node);
       if (qn->lower > 0) {
+#ifdef USE_OP_PUSH_OR_JUMP_EXACT
 	if (IS_NOT_NULL(qn->head_exact))
 	  n = qn->head_exact;
 	else
+#endif
 	  n = get_head_value_node(qn->target, exact, reg);
       }
     }
@@ -4189,6 +4191,10 @@ set_bm_skip(UChar* s, UChar* end, regex_t* reg,
     }
   }
   else {
+# if OPT_EXACT_MAXLEN < ONIG_CHAR_TABLE_SIZE
+    /* This should not happen. */
+    return ONIGERR_TYPE_BUG;
+# else
     if (IS_NULL(*int_skip)) {
       *int_skip = (int* )xmalloc(sizeof(int) * ONIG_CHAR_TABLE_SIZE);
       if (IS_NULL(*int_skip)) return ONIGERR_MEMORY;
@@ -4217,6 +4223,7 @@ set_bm_skip(UChar* s, UChar* end, regex_t* reg,
 	}
       }
     }
+# endif
   }
   return 0;
 }
@@ -4262,6 +4269,10 @@ set_bm_skip(UChar* s, UChar* end, regex_t* reg,
     }
   }
   else {
+# if OPT_EXACT_MAXLEN < ONIG_CHAR_TABLE_SIZE
+    /* This should not happen. */
+    return ONIGERR_TYPE_BUG;
+# else
     if (IS_NULL(*int_skip)) {
       *int_skip = (int* )xmalloc(sizeof(int) * ONIG_CHAR_TABLE_SIZE);
       if (IS_NULL(*int_skip)) return ONIGERR_MEMORY;
@@ -4290,12 +4301,11 @@ set_bm_skip(UChar* s, UChar* end, regex_t* reg,
 	}
       }
     }
+# endif
   }
   return 0;
 }
 #endif /* USE_SUNDAY_QUICK_SEARCH */
-
-#define OPT_EXACT_MAXLEN   24
 
 typedef struct {
   OnigDistance min;  /* min byte length */
@@ -5295,10 +5305,13 @@ set_optimize_exact_info(regex_t* reg, OptExactInfo* e)
     if (e->len >= 3 || (e->len >= 2 && allow_reverse)) {
       r = set_bm_skip(reg->exact, reg->exact_end, reg,
 		      reg->map, &(reg->int_map), 0);
-      if (r) return r;
-
-      reg->optimize = (allow_reverse != 0
+      if (r == 0) {
+	reg->optimize = (allow_reverse != 0
 		       ? ONIG_OPTIMIZE_EXACT_BM : ONIG_OPTIMIZE_EXACT_BM_NOT_REV);
+      }
+      else {
+	reg->optimize = ONIG_OPTIMIZE_EXACT;
+      }
     }
     else {
       reg->optimize = ONIG_OPTIMIZE_EXACT;
@@ -5633,23 +5646,25 @@ onig_region_memsize(const OnigRegion *regs)
   xfree(from);\
 } while (0)
 
+#if 0
 extern void
 onig_transfer(regex_t* to, regex_t* from)
 {
   REGEX_TRANSFER(to, from);
 }
+#endif
 
 #ifdef ONIG_DEBUG_COMPILE
-static void print_compiled_byte_code_list P_((FILE* f, regex_t* reg));
+static void print_compiled_byte_code_list(FILE* f, regex_t* reg);
 #endif
 #ifdef ONIG_DEBUG_PARSE_TREE
-static void print_tree P_((FILE* f, Node* node));
+static void print_tree(FILE* f, Node* node);
 #endif
 
 #ifdef RUBY
 extern int
 onig_compile(regex_t* reg, const UChar* pattern, const UChar* pattern_end,
-	      OnigErrorInfo* einfo)
+	     OnigErrorInfo* einfo)
 {
   return onig_compile_ruby(reg, pattern, pattern_end, einfo, NULL, 0);
 }
@@ -5662,7 +5677,7 @@ onig_compile_ruby(regex_t* reg, const UChar* pattern, const UChar* pattern_end,
 #else
 extern int
 onig_compile(regex_t* reg, const UChar* pattern, const UChar* pattern_end,
-	      OnigErrorInfo* einfo)
+	     OnigErrorInfo* einfo)
 #endif
 {
 #define COMPILE_INIT_SIZE  20
@@ -5941,6 +5956,11 @@ onig_new(regex_t** reg, const UChar* pattern, const UChar* pattern_end,
   return r;
 }
 
+extern int
+onig_initialize(OnigEncoding encodings[] ARG_UNUSED, int n ARG_UNUSED)
+{
+  return onig_init();
+}
 
 extern int
 onig_init(void)
@@ -5949,6 +5969,10 @@ onig_init(void)
     return 0;
 
   onig_inited = 1;
+
+#if defined(ONIG_DEBUG_MEMLEAK) && defined(_MSC_VER)
+  _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+#endif
 
   onigenc_init();
   /* onigenc_set_default_caseconv_table((UChar* )0); */
@@ -5999,6 +6023,10 @@ onig_end(void)
 
 #ifdef ONIG_DEBUG_STATISTICS
   onig_print_statistics(stderr);
+#endif
+
+#if defined(ONIG_DEBUG_MEMLEAK) && defined(_MSC_VER)
+  _CrtDumpMemoryLeaks();
 #endif
 
   onig_inited = 0;
@@ -6100,7 +6128,6 @@ OnigOpInfoType OnigOpInfo[] = {
   { OP_CCLASS_NOT,        "cclass-not",      ARG_SPECIAL },
   { OP_CCLASS_MB_NOT,     "cclass-mb-not",   ARG_SPECIAL },
   { OP_CCLASS_MIX_NOT,    "cclass-mix-not",  ARG_SPECIAL },
-  { OP_CCLASS_NODE,       "cclass-node",     ARG_SPECIAL },
   { OP_ANYCHAR,           "anychar",         ARG_NON },
   { OP_ANYCHAR_ML,        "anychar-ml",      ARG_NON },
   { OP_ANYCHAR_STAR,      "anychar*",        ARG_NON },
@@ -6249,7 +6276,7 @@ onig_print_compiled_byte_code(FILE* f, UChar* bp, UChar* bpend, UChar** nextp,
       break;
     case ARG_RELADDR:
       GET_RELADDR_INC(addr, bp);
-      fprintf(f, ":(+%d)", addr);
+      fprintf(f, ":(%s%d)", (addr >= 0) ? "+" : "", addr);
       break;
     case ARG_ABSADDR:
       GET_ABSADDR_INC(addr, bp);
@@ -6376,16 +6403,6 @@ onig_print_compiled_byte_code(FILE* f, UChar* bp, UChar* bpend, UChar** nextp,
       fprintf(f, ":%d:%d:%d", n, (int )code, len);
       break;
 
-    case OP_CCLASS_NODE:
-      {
-	CClassNode *cc;
-
-	GET_POINTER_INC(cc, bp);
-	n = bitset_on_num(cc->bs);
-	fprintf(f, ":%"PRIuPTR":%d", (uintptr_t )cc, n);
-      }
-      break;
-
     case OP_BACKREFN_IC:
       mem = *((MemNumType* )bp);
       bp += SIZE_MEMNUM;
@@ -6438,7 +6455,7 @@ onig_print_compiled_byte_code(FILE* f, UChar* bp, UChar* bpend, UChar** nextp,
     case OP_PUSH_IF_PEEK_NEXT:
       addr = *((RelAddrType* )bp);
       bp += SIZE_RELADDR;
-      fprintf(f, ":(%d)", addr);
+      fprintf(f, ":(%s%d)", (addr >= 0) ? "+" : "", addr);
       p_string(f, 1, bp);
       bp += 1;
       break;
@@ -6451,7 +6468,7 @@ onig_print_compiled_byte_code(FILE* f, UChar* bp, UChar* bpend, UChar** nextp,
     case OP_PUSH_LOOK_BEHIND_NOT:
       GET_RELADDR_INC(addr, bp);
       GET_LENGTH_INC(len, bp);
-      fprintf(f, ":%d:(%d)", len, addr);
+      fprintf(f, ":%d:(%s%d)", len, (addr >= 0) ? "+" : "", addr);
       break;
 
     case OP_STATE_CHECK_PUSH:
@@ -6460,13 +6477,13 @@ onig_print_compiled_byte_code(FILE* f, UChar* bp, UChar* bpend, UChar** nextp,
       bp += SIZE_STATE_CHECK_NUM;
       addr = *((RelAddrType* )bp);
       bp += SIZE_RELADDR;
-      fprintf(f, ":%d:(%d)", scn, addr);
+      fprintf(f, ":%d:(%s%d)", scn, (addr >= 0) ? "+" : "", addr);
       break;
 
     case OP_CONDITION:
       GET_MEMNUM_INC(mem, bp);
       GET_RELADDR_INC(addr, bp);
-      fprintf(f, ":%d:(%d)", mem, addr);
+      fprintf(f, ":%d:(%s%d)", mem, (addr >= 0) ? "+" : "", addr);
       break;
 
     default:

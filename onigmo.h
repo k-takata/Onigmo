@@ -596,6 +596,7 @@ ONIG_EXTERN const OnigSyntaxType*   OnigDefaultSyntax;
 #define ONIG_SYN_ALLOW_MULTIPLEX_DEFINITION_NAME (1U<<8)  /* (?<x>)(?<x>) */
 #define ONIG_SYN_FIXED_INTERVAL_IS_GREEDY_ONLY   (1U<<9)  /* a{n}?=(?:a{n})? */
 #define ONIG_SYN_ALLOW_MULTIPLEX_DEFINITION_NAME_CALL (1U<<10)  /* (?<x>)(?<x>)(?&x) */
+#define ONIG_SYN_USE_LEFT_MOST_NAMED_GROUP       (1U<<11) /* (?<x>)(?<x>)\k<x> */
 
 /* syntax (behavior) in char class [...] */
 #define ONIG_SYN_NOT_NEWLINE_IN_NEGATIVE_CC      (1U<<20) /* [^...] */
@@ -632,6 +633,7 @@ ONIG_EXTERN const OnigSyntaxType*   OnigDefaultSyntax;
 #define ONIGERR_UNDEFINED_BYTECODE                            -13
 #define ONIGERR_UNEXPECTED_BYTECODE                           -14
 #define ONIGERR_MATCH_STACK_LIMIT_OVER                        -15
+#define ONIGERR_PARSE_DEPTH_LIMIT_OVER                        -16
 #define ONIGERR_DEFAULT_ENCODING_IS_NOT_SET                   -21
 #define ONIGERR_SPECIFIED_ENCODING_CANT_CONVERT_TO_WIDE_CHAR  -22
 /* general error */
@@ -809,6 +811,8 @@ typedef struct {
 
 /* Oniguruma Native API */
 ONIG_EXTERN
+int onig_initialize(OnigEncoding encodings[], int n);
+ONIG_EXTERN
 int onig_init(void);
 ONIG_EXTERN
 int onig_error_code_to_str(OnigUChar* s, OnigPosition err_code, ...);
@@ -828,6 +832,8 @@ ONIG_EXTERN
 void onig_free(OnigRegex);
 ONIG_EXTERN
 void onig_free_body(OnigRegex);
+ONIG_EXTERN
+int onig_scan(OnigRegex reg, const OnigUChar* str, const OnigUChar* end, OnigRegion* region, OnigOptionType option, int (*scan_callback)(int, int, OnigRegion*, void*), void* callback_arg);
 ONIG_EXTERN
 OnigPosition onig_search(OnigRegex, const OnigUChar* str, const OnigUChar* end, const OnigUChar* start, const OnigUChar* range, OnigRegion* region, OnigOptionType option);
 ONIG_EXTERN
@@ -906,6 +912,10 @@ ONIG_EXTERN
 unsigned int onig_get_match_stack_limit_size(void);
 ONIG_EXTERN
 int onig_set_match_stack_limit_size(unsigned int size);
+ONIG_EXTERN
+unsigned int onig_get_parse_depth_limit(void);
+ONIG_EXTERN
+int onig_set_parse_depth_limit(unsigned int depth);
 ONIG_EXTERN
 int onig_end(void);
 ONIG_EXTERN

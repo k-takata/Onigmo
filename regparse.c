@@ -109,6 +109,26 @@ extern void onig_set_verb_warn_func(OnigWarnFunc f)
 
 static void CC_DUP_WARN(ScanEnv *env);
 
+
+static unsigned int ParseDepthLimit = DEFAULT_PARSE_DEPTH_LIMIT;
+
+extern unsigned int
+onig_get_parse_depth_limit(void)
+{
+  return ParseDepthLimit;
+}
+
+extern int
+onig_set_parse_depth_limit(unsigned int depth)
+{
+  if (depth == 0)
+    ParseDepthLimit = DEFAULT_PARSE_DEPTH_LIMIT;
+  else
+    ParseDepthLimit = depth;
+  return 0;
+}
+
+
 static void
 bbuf_free(BBuf* bbuf)
 {
@@ -986,6 +1006,7 @@ scan_env_clear(ScanEnv* env)
   env->curr_max_regnum     = 0;
   env->has_recursion       = 0;
 #endif
+  env->parse_depth         = 0;
   env->warnings_flag       = 0;
 }
 
@@ -1065,7 +1086,6 @@ onig_node_free(Node* node)
     {
       CClassNode* cc = NCCLASS(node);
 
-      if (IS_NCCLASS_SHARE(cc)) return ;
       if (cc->mbuf)
 	bbuf_free(cc->mbuf);
     }
@@ -2169,6 +2189,7 @@ enum ReduceType {
 };
 
 static enum ReduceType const ReduceTypeTable[6][6] = {
+/* '?',     '*',     '+',    '??',    '*?',    '+?'      p / c   */
   {RQ_DEL,  RQ_A,    RQ_A,   RQ_QQ,   RQ_AQ,   RQ_ASIS}, /* '?'  */
   {RQ_DEL,  RQ_DEL,  RQ_DEL, RQ_P_QQ, RQ_P_QQ, RQ_DEL},  /* '*'  */
   {RQ_A,    RQ_A,    RQ_DEL, RQ_ASIS, RQ_P_QQ, RQ_DEL},  /* '+'  */
@@ -3260,7 +3281,7 @@ fetch_named_backref_token(OnigCodePoint c, OnigToken* tok, UChar** src,
 
     tok->type = TK_BACKREF;
     tok->u.backref.by_name = 1;
-    if (num == 1) {
+    if (num == 1 || IS_SYNTAX_BV(syn, ONIG_SYN_USE_LEFT_MOST_NAMED_GROUP)) {
       tok->u.backref.num  = 1;
       tok->u.backref.ref1 = backs[0];
     }
@@ -4546,6 +4567,9 @@ parse_char_class(Node** np, Node** asc_np, OnigToken* tok, UChar** src, UChar* e
   enum CCVALTYPE val_type, in_type;
   int val_israw, in_israw;
 
+  env->parse_depth++;
+  if (env->parse_depth > ParseDepthLimit)
+    return ONIGERR_PARSE_DEPTH_LIMIT_OVER;
   prev_cc = asc_prev_cc = (CClassNode* )NULL;
   *np = *asc_np = NULL_NODE;
   r = fetch_token_in_cc(tok, src, end, env);
@@ -4901,6 +4925,7 @@ parse_char_class(Node** np, Node** asc_np, OnigToken* tok, UChar** src, UChar* e
     }
   }
   *src = p;
+  env->parse_depth--;
   return 0;
 
  err:
@@ -5086,30 +5111,23 @@ parse_enclose(Node** np, OnigToken* tok, int term, UChar** src, UChar* end,
 	}
 #ifdef USE_NAMED_GROUP
 	else if (c == '<' || c == '\'') {    /* (<name>), ('name') */
-	  int nums;
-	  int *backs;
-
 	  name = p;
-	  r = fetch_name((OnigCodePoint )c, &p, end, &name_end, env, &num, 0);
+	  r = fetch_named_backref_token(c, tok, &p, end, env);
 	  if (r < 0) return r;
 	  if (!PPEEK_IS(')')) return ONIGERR_UNDEFINED_GROUP_OPTION;
 	  PINC;
 
-	  nums = onig_name_to_group_numbers(env->reg, name, name_end, &backs);
-	  if (nums <= 0) {
-	    onig_scan_env_set_error_string(env,
-		     ONIGERR_UNDEFINED_NAME_REFERENCE, name, name_end);
-	    return ONIGERR_UNDEFINED_NAME_REFERENCE;
+	  if (IS_SYNTAX_BV(env->syntax, ONIG_SYN_USE_LEFT_MOST_NAMED_GROUP)) {
+	    num = tok->u.backref.ref1;
 	  }
-	  if (IS_SYNTAX_BV(env->syntax, ONIG_SYN_STRICT_CHECK_BACKREF)) {
-	    int i;
-	    for (i = 0; i < nums; i++) {
-	      if (backs[i] > env->num_mem ||
-		  IS_NULL(SCANENV_MEM_NODES(env)[backs[i]]))
-	      return ONIGERR_INVALID_BACKREF;
-	    }
+	  else {
+	    /* FIXME:
+	     * Use left most named group for now. This is the same as Perl.
+	     * However this should use the same strategy as normal back-
+	     * references on Ruby syntax; search right to left. */
+	    int len = tok->u.backref.num;
+	    num = len > 1 ? tok->u.backref.refs[0] : tok->u.backref.ref1;
 	  }
-	  num = backs[0];       /* XXX: use left most named group as Perl */
 	}
 #endif
 	else
@@ -6219,6 +6237,9 @@ parse_subexp(Node** top, OnigToken* tok, int term,
   Node *node, **headp;
 
   *top = NULL;
+  env->parse_depth++;
+  if (env->parse_depth > ParseDepthLimit)
+    return ONIGERR_PARSE_DEPTH_LIMIT_OVER;
   r = parse_branch(&node, tok, term, src, end, env);
   if (r < 0) {
     onig_node_free(node);
@@ -6256,6 +6277,7 @@ parse_subexp(Node** top, OnigToken* tok, int term,
       return ONIGERR_PARSER_BUG;
   }
 
+  env->parse_depth--;
   return r;
 }
 

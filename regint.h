@@ -35,6 +35,7 @@
 /* #define ONIG_DEBUG_COMPILE */
 /* #define ONIG_DEBUG_SEARCH */
 /* #define ONIG_DEBUG_MATCH */
+/* #define ONIG_DEBUG_MEMLEAK */
 /* #define ONIG_DONT_OPTIMIZE */
 
 /* for byte-code statistical data. */
@@ -42,7 +43,7 @@
 
 #if defined(ONIG_DEBUG_PARSE_TREE) || defined(ONIG_DEBUG_MATCH) || \
     defined(ONIG_DEBUG_SEARCH) || defined(ONIG_DEBUG_COMPILE) || \
-    defined(ONIG_DEBUG_STATISTICS)
+    defined(ONIG_DEBUG_STATISTICS) || defined(ONIG_DEBUG_MEMLEAK)
 # ifndef ONIG_DEBUG
 #  define ONIG_DEBUG
 # endif
@@ -77,13 +78,16 @@
 #define USE_NO_INVALID_QUANTIFIER
 
 /* internal config */
-#define USE_OP_PUSH_OR_JUMP_EXACT
+/* #define USE_OP_PUSH_OR_JUMP_EXACT */
 #define USE_QTFR_PEEK_NEXT
 #define USE_ST_LIBRARY
 #define USE_SUNDAY_QUICK_SEARCH
 
 #define INIT_MATCH_STACK_SIZE                     160
 #define DEFAULT_MATCH_STACK_LIMIT_SIZE              0 /* unlimited */
+#define DEFAULT_PARSE_DEPTH_LIMIT                4096
+
+#define OPT_EXACT_MAXLEN   24
 
 /* check config */
 #if defined(USE_PERL_SUBEXP_CALL) || defined(USE_CAPITAL_P_NAMED_GROUP)
@@ -108,6 +112,9 @@
 # endif
 #else /* RUBY */
 # include "config.h"
+# if SIZEOF_LONG_LONG > 0
+#  define LONG_LONG long long
+# endif
 #endif /* RUBY */
 
 #include <stdarg.h>
@@ -195,12 +202,21 @@
 
 #if defined(_WIN32) && !defined(__GNUC__)
 # define xalloca     _alloca
-# define xvsnprintf  _vsnprintf
+# define xvsnprintf(buf,size,fmt,args)  _vsnprintf_s(buf,size,_TRUNCATE,fmt,args)
+# define xsnprintf   sprintf_s
+# define xstrcat(dest,src,size)   strcat_s(dest,size,src)
 #else
 # define xalloca     alloca
 # define xvsnprintf  vsnprintf
+# define xsnprintf   snprintf
+# define xstrcat(dest,src,size)	  strcat(dest,src)
 #endif
 
+#if defined(ONIG_DEBUG_MEMLEAK) && defined(_MSC_VER)
+# define _CRTDBG_MAP_ALLOC
+# include <malloc.h>
+# include <crtdbg.h>
+#endif
 
 #include <stdlib.h>
 
@@ -551,7 +567,6 @@ enum OpCode {
   OP_CCLASS_NOT,
   OP_CCLASS_MB_NOT,
   OP_CCLASS_MIX_NOT,
-  OP_CCLASS_NODE,       /* pointer to CClassNode node */
 
   OP_ANYCHAR,                 /* "."  */
   OP_ANYCHAR_ML,              /* "."  multi-line */
@@ -765,13 +780,10 @@ typedef void* PointerType;
 
 /* cclass node */
 #define FLAG_NCCLASS_NOT           (1<<0)
-#define FLAG_NCCLASS_SHARE         (1<<1)
 
 #define NCCLASS_SET_NOT(nd)     NCCLASS_FLAG_SET(nd, FLAG_NCCLASS_NOT)
-#define NCCLASS_SET_SHARE(nd)   NCCLASS_FLAG_SET(nd, FLAG_NCCLASS_SHARE)
 #define NCCLASS_CLEAR_NOT(nd)   NCCLASS_FLAG_CLEAR(nd, FLAG_NCCLASS_NOT)
 #define IS_NCCLASS_NOT(nd)      IS_NCCLASS_FLAG_ON(nd, FLAG_NCCLASS_NOT)
-#define IS_NCCLASS_SHARE(nd)    IS_NCCLASS_FLAG_ON(nd, FLAG_NCCLASS_SHARE)
 
 typedef struct {
   int type;

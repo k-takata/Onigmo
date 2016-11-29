@@ -9,7 +9,7 @@
 #define SIZEOF_INT 4
 #define SIZEOF_SHORT 2
 #define SIZEOF_LONG 4
-#define SIZEOF_LONG_LONG 0
+#define SIZEOF_LONG_LONG 8
 #define SIZEOF___INT64 8
 #define SIZEOF_OFF_T 4
 #ifdef _WIN64
@@ -21,7 +21,7 @@
 #define SIZEOF_DOUBLE 8
 #define TOKEN_PASTE(x,y) x##y
 #ifndef NORETURN
-# if _MSC_VER > 1100
+# if defined(_MSC_VER) && (_MSC_VER > 1100)
 #  define NORETURN(x) __declspec(noreturn) x
 # else
 #  define NORETURN(x) x

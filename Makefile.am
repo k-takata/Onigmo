@@ -40,8 +40,8 @@ libonigmo_la_SOURCES = regint.h regparse.h regenc.h st.h \
 
 libonigmo_la_LDFLAGS = -version-info $(LTVERSION) -no-undefined
 
-EXTRA_DIST = .gitignore onigmo.pc.in HISTORY README.ja index.html \
-	index_ja.html doc/API doc/API.ja doc/RE doc/RE.ja doc/FAQ doc/FAQ.ja \
+EXTRA_DIST = .gitignore onigmo.pc.in HISTORY README.ja README.md \
+	doc/API doc/API.ja doc/RE doc/RE.ja doc/FAQ doc/FAQ.ja \
 	doc/UnicodeProps.txt \
 	tool/.gitignore tool/Makefile tool/case-folding.rb \
 	tool/convert-name2ctype.sh tool/convert-jis-props.sh \
@@ -49,9 +49,6 @@ EXTRA_DIST = .gitignore onigmo.pc.in HISTORY README.ja index.html \
 	win32/Makefile win32/Makefile.mingw win32/config.h win32/testc.c \
 	win32/makedef.py win32/onigmo.rc \
 	$(encdir)/mktable.c \
-	$(sampledir)/encode.c $(sampledir)/listcap.c $(sampledir)/names.c \
-	$(sampledir)/posix.c $(sampledir)/simple.c $(sampledir)/sql.c \
-	$(sampledir)/syntax.c $(sampledir)/crnl.c \
 	test.rb testconv.rb testconvu.rb \
 	onigmo.py testpy.py .editorconfig
 
@@ -75,15 +72,6 @@ pkgconfigdir   = $(libdir)/pkgconfig
 pkgconfig_DATA = onigmo.pc
 CLEANFILES = onigmo.pc
 
-dll:
-	$(CXX) -shared -Wl,--output-def,libonigmo.def -o libonigmo.dll *.o \
-	$(LIBS)
-	strip libonigmo.dll
-
-# Ruby TEST
-rtest:
-	$(RUBYDIR)/ruby -w -Ke $(srcdir)/test.rb
-
 # character-types-table source generator
 mktable: $(encdir)/mktable.c $(srcdir)/regenc.h
 	$(CC) -I$(top_srcdir) -o mktable $(encdir)/mktable.c
@@ -93,6 +81,9 @@ mktable: $(encdir)/mktable.c $(srcdir)/regenc.h
 TESTS = testc testp testcu
 
 check_PROGRAMS = testc testp testcu
+
+test: atest pytest
+	$(MAKE) -C sample test
 
 atest: testc$(EXEEXT) testp$(EXEEXT) testcu$(EXEEXT)
 	@echo "[Onigmo API, ASCII/EUC-JP check]"
@@ -113,14 +104,14 @@ testcu_SOURCES = testu.c
 testcu_LDADD = libonigmo.la
 
 
-testc.c: $(srcdir)/test.rb $(srcdir)/testconv.rb
+$(srcdir)/testc.c: $(srcdir)/test.rb $(srcdir)/testconv.rb
 	ruby -Ke $(srcdir)/testconv.rb < $(srcdir)/test.rb > $@
 
-testu.c: $(srcdir)/test.rb $(srcdir)/testconvu.rb
+$(srcdir)/testu.c: $(srcdir)/test.rb $(srcdir)/testconvu.rb
 	ruby -Ke $(srcdir)/testconvu.rb $(srcdir)/test.rb > $@
 
-win32/testc.c: $(srcdir)/test.rb $(srcdir)/testconv.rb
-	ruby -Ke $(srcdir)/testconv.rb -win < $(srcdir)/test.rb | nkf -cs > $@
+$(srcdir)/win32/testc.c: $(srcdir)/test.rb $(srcdir)/testconv.rb
+	ruby -Ke $(srcdir)/testconv.rb -win < $(srcdir)/test.rb | iconv -f euc-jp -t cp932 | sed -e "s/$$/\r/" > $@
 
 # Python TEST
 pytest:

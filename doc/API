@@ -1,6 +1,17 @@
-Onigmo (Oniguruma-mod) API  Version 6.0.0  2016/10/10
+Onigmo (Oniguruma-mod) API  Version 6.0.0  2016/11/28
 
 #include <onigmo.h>
+
+
+# int onig_initialize(OnigEncoding use_encodings[], int num_encodings)
+
+  Initialize library.
+  This is added for compatibility to Oniguruma 6.0.
+  Currently this is same as onig_init().
+
+  arguments
+  1 use_encodings:         array of encodings used in application.
+  2 num_encodings:         number of encodings.
 
 
 # int onig_init(void)
@@ -9,6 +20,7 @@ Onigmo (Oniguruma-mod) API  Version 6.0.0  2016/10/10
 
   Single thread program:
     You don't have to call it explicitly, because it is called in onig_new().
+    However calling it is preferred.
 
   Multi thread program:
     You have to call it explicitly from a specific thread (normally the main
@@ -298,6 +310,27 @@ Onigmo (Oniguruma-mod) API  Version 6.0.0  2016/10/10
     ONIG_OPTION_NOTBOS       string head(str) isn't considered as begin of string (\A)
     ONIG_OPTION_NOTEOS       string end (end) isn't considered as end of string (\z)
     ONIG_OPTION_POSIX_REGION region argument is regmatch_t[] type of POSIX API.
+
+
+# int onig_scan(regex_t* reg, const UChar* str, const UChar* end,
+                OnigRegion* region, OnigOptionType option,
+                int (*scan_callback)(int, int, OnigRegion*, void*),
+                void* callback_arg)
+
+  Scan string and callback with matching region.
+
+  normal return: number of matching times
+  error:         error code
+  interruption:  return value of callback function (!= 0)
+
+  arguments
+  1 reg:    regex object
+  2 str:    target string
+  3 end:    terminate address of target string
+  4 region: address for return group match range info (NULL is allowed)
+  5 option: search time option
+  6 scan_callback: callback function (defined by user)
+  7 callback_arg:  optional argument passed to callback
 
 
 # OnigRegion* onig_region_new(void)
@@ -636,6 +669,20 @@ Onigmo (Oniguruma-mod) API  Version 6.0.0  2016/10/10
 
   Set the maximum number of stack size.
   (size = 0: unlimited)
+
+  normal return: ONIG_NORMAL
+
+
+# unsigned int onig_get_parse_depth_limit(void)
+
+  Return the maximum depth of parser recursion.
+  (default: DEFAULT_PARSE_DEPTH_LIMIT defined in regint.h. Currently 4096.)
+
+
+# int onig_set_parse_depth_limit(unsigned int depth)
+
+  Set the maximum depth of parser recursion.
+  (depth = 0: Set to the default value defined in regint.h.)
 
   normal return: ONIG_NORMAL
 
