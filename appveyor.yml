@@ -2,6 +2,7 @@ version: 1.0.{build}
 
 branches:
   except:
+  - bregonig
   - ruby-2.x
   - onig-5.9.x-mod
   - onig-5.9.x-mod_for_bregonig-v2
