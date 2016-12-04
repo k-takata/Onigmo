@@ -3,7 +3,7 @@
  */
 #include <stdio.h>
 #include <string.h>
-#include "oniguruma.h"
+#include "onigmo.h"
 
 extern int main(int argc, char* argv[])
 {
@@ -36,7 +36,7 @@ extern int main(int argc, char* argv[])
   r = onig_new(&reg, pattern, pattern + strlen((char* )pattern),
 	       ONIG_OPTION_DEFAULT, ONIG_ENCODING_ASCII, &SQLSyntax, &einfo);
   if (r != ONIG_NORMAL) {
-    char s[ONIG_MAX_ERROR_MESSAGE_LEN];
+    OnigUChar s[ONIG_MAX_ERROR_MESSAGE_LEN];
     onig_error_code_to_str(s, r, &einfo);
     fprintf(stderr, "ERROR: %s\n", s);
     return -1;
@@ -62,7 +62,7 @@ extern int main(int argc, char* argv[])
     r = -1;
   }
   else { /* error */
-    char s[ONIG_MAX_ERROR_MESSAGE_LEN];
+    OnigUChar s[ONIG_MAX_ERROR_MESSAGE_LEN];
     onig_error_code_to_str(s, r);
     fprintf(stderr, "ERROR: %s\n", s);
     return -1;
