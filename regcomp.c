@@ -3,7 +3,7 @@
 **********************************************************************/
 /*-
  * Copyright (c) 2002-2013  K.Kosako  <sndgk393 AT ybb DOT ne DOT jp>
- * Copyright (c) 2011-2014  K.Takata  <kentkt AT csc DOT jp>
+ * Copyright (c) 2011-2016  K.Takata  <kentkt AT csc DOT jp>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -3840,6 +3840,7 @@ setup_comb_exp_check(Node* node, int state, ScanEnv* env)
 #define IN_REPEAT     (1<<2)
 #define IN_VAR_REPEAT (1<<3)
 #define IN_ROOT       (1<<4)
+#define IN_CALL       (1<<5)
 
 /* setup_tree does the following work.
  1. check empty loop. (set qn->target_empty_info)
@@ -4044,10 +4045,15 @@ restart:
 	break;
 
       case ENCLOSE_MEMORY:
-	if ((state & (IN_ALT | IN_NOT | IN_VAR_REPEAT)) != 0) {
+	if ((state & (IN_ALT | IN_NOT | IN_VAR_REPEAT | IN_CALL)) != 0) {
 	  BIT_STATUS_ON_AT(env->bt_mem_start, en->regnum);
 	  /* SET_ENCLOSE_STATUS(node, NST_MEM_IN_ALT_NOT); */
 	}
+	if ((state & IN_CALL) != 0) {
+	  BIT_STATUS_ON_AT(env->bt_mem_end, en->regnum);
+	}
+	if (IS_ENCLOSE_CALLED(en))
+	  state |= IN_CALL;
 	r = setup_tree(en->target, reg, state, env);
 	break;
 
@@ -6520,7 +6526,7 @@ print_compiled_byte_code_list(FILE* f, regex_t* reg)
 # endif /* ONIG_DEBUG_COMPILE */
 
 # ifdef ONIG_DEBUG_PARSE_TREE
-static void
+void
 print_indent_tree(FILE* f, Node* node, int indent)
 {
   int i, type, container_p = 0;
@@ -6566,12 +6572,15 @@ print_indent_tree(FILE* f, Node* node, int indent)
 
   case NT_CCLASS:
     fprintf(f, "<cclass:%"PRIxPTR">", (intptr_t )node);
-    if (IS_NCCLASS_NOT(NCCLASS(node))) fputs(" not", f);
+    if (IS_NCCLASS_NOT(NCCLASS(node))) fputs("not ", f);
     if (NCCLASS(node)->mbuf) {
       BBuf* bbuf = NCCLASS(node)->mbuf;
-      for (i = 0; i < (int )bbuf->used; i++) {
-	if (i > 0) fprintf(f, ",");
-	fprintf(f, "%0x", bbuf->p[i]);
+      OnigCodePoint* data = (OnigCodePoint* )bbuf->p;
+      OnigCodePoint* end = (OnigCodePoint* )(bbuf->p + bbuf->used);
+      fprintf(f, "%d", *data++);
+      for (; data < end; data+=2) {
+	fprintf(f, ",");
+	fprintf(f, "%04x-%04x", data[0], data[1]);
       }
     }
     break;

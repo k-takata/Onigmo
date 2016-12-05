@@ -3,7 +3,7 @@
 **********************************************************************/
 /*-
  * Copyright (c) 2002-2008  K.Kosako  <sndgk393 AT ybb DOT ne DOT jp>
- * Copyright (c) 2011-2014  K.Takata  <kentkt AT csc DOT jp>
+ * Copyright (c) 2011-2016  K.Takata  <kentkt AT csc DOT jp>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1772,7 +1772,7 @@ add_code_range0(BBuf** pbuf, ScanEnv* env, OnigCodePoint from, OnigCodePoint to,
 static int
 add_code_range(BBuf** pbuf, ScanEnv* env, OnigCodePoint from, OnigCodePoint to)
 {
-    return add_code_range0(pbuf, env, from, to, 1);
+  return add_code_range0(pbuf, env, from, to, 1);
 }
 
 static int
@@ -4146,12 +4146,15 @@ add_ctype_to_cc(CClassNode* cc, int ctype, int not, int ascii_range, ScanEnv* en
 	  CClassNode ccascii;
 	  initialize_cclass(&ccascii);
 	  if (ONIGENC_MBC_MINLEN(env->enc) > 1) {
-	    add_code_range(&(ccascii.mbuf), env, 0x00, 0x7F);
+	    r = add_code_range(&(ccascii.mbuf), env, 0x00, 0x7F);
 	  }
 	  else {
 	    bitset_set_range(env, ccascii.bs, 0x00, 0x7F);
+	    r = 0;
 	  }
-	  r = and_cclass(&ccwork, &ccascii, env);
+	  if (r == 0) {
+	    r = and_cclass(&ccwork, &ccascii, env);
+	  }
 	  if (IS_NOT_NULL(ccascii.mbuf)) bbuf_free(ccascii.mbuf);
 	}
 	if (r == 0) {
@@ -5623,7 +5626,7 @@ node_linebreak(Node** np, ScanEnv* env)
   Node* target1 = NULL;
   Node* target2 = NULL;
   CClassNode* cc;
-  int num1, num2;
+  int num1, num2, r;
   UChar buf[ONIGENC_CODE_TO_MBC_MAXLEN * 2];
 
   /* \x0D\x0A */
@@ -5639,7 +5642,8 @@ node_linebreak(Node** np, ScanEnv* env)
   if (IS_NULL(right)) goto err;
   cc = NCCLASS(right);
   if (ONIGENC_MBC_MINLEN(env->enc) > 1) {
-    add_code_range(&(cc->mbuf), env, 0x0A, 0x0D);
+    r = add_code_range(&(cc->mbuf), env, 0x0A, 0x0D);
+    if (r != 0) goto err;
   }
   else {
     bitset_set_range(env, cc->bs, 0x0A, 0x0D);
@@ -5648,8 +5652,10 @@ node_linebreak(Node** np, ScanEnv* env)
   /* TODO: move this block to enc/unicode.c */
   if (ONIGENC_IS_UNICODE(env->enc)) {
     /* UTF-8, UTF-16BE/LE, UTF-32BE/LE */
-    add_code_range(&(cc->mbuf), env, 0x85, 0x85);
-    add_code_range(&(cc->mbuf), env, 0x2028, 0x2029);
+    r = add_code_range(&(cc->mbuf), env, 0x85, 0x85);
+    if (r != 0) goto err;
+    r = add_code_range(&(cc->mbuf), env, 0x2028, 0x2029);
+    if (r != 0) goto err;
   }
 
   /* ...|... */
@@ -5676,82 +5682,755 @@ node_linebreak(Node** np, ScanEnv* env)
 }
 
 static int
+propname2ctype(ScanEnv* env, const char* propname)
+{
+  UChar* name = (UChar* )propname;
+  int ctype = env->enc->property_name_to_ctype(ONIG_ENCODING_ASCII,
+      name, name + strlen(propname));
+  return ctype;
+}
+
+static int
 node_extended_grapheme_cluster(Node** np, ScanEnv* env)
 {
-  /* same as (?>\P{M}\p{M}*) */
+  Node* tmp = NULL;
   Node* np1 = NULL;
-  Node* np2 = NULL;
-  Node* qn = NULL;
-  Node* list1 = NULL;
+  Node* list = NULL;
   Node* list2 = NULL;
+  Node* alt = NULL;
+  Node* alt2 = NULL;
+  BBuf *pbuf1 = NULL;
   int r = 0;
+  int num1, num2;
+  UChar buf[ONIGENC_CODE_TO_MBC_MAXLEN * 2];
+  OnigOptionType option;
 
 #ifdef USE_UNICODE_PROPERTIES
   if (ONIGENC_IS_UNICODE(env->enc)) {
     /* UTF-8, UTF-16BE/LE, UTF-32BE/LE */
-    CClassNode* cc1;
-    CClassNode* cc2;
-    UChar* propname = (UChar* )"M";
-    int ctype = env->enc->property_name_to_ctype(ONIG_ENCODING_ASCII,
-	propname, propname + 1);
-    if (ctype >= 0) {
-      /* \P{M} */
-      np1 = node_new_cclass();
-      if (IS_NULL(np1)) goto err;
-      cc1 = NCCLASS(np1);
-      r = add_ctype_to_cc(cc1, ctype, 0, 0, env);
+    CClassNode* cc;
+    OnigCodePoint sb_out = (ONIGENC_MBC_MINLEN(env->enc) > 1) ? 0x00 : 0x80;
+    int extend = propname2ctype(env, "Grapheme_Cluster_Break=Extend");
+
+    /* Prepend*
+     * ( RI-sequence | Hangul-Syllable | !Control )
+     * ( Grapheme_Extend | SpacingMark )* */
+
+    /* ( Grapheme_Extend | SpacingMark )* */
+    np1 = node_new_cclass();
+    if (IS_NULL(np1)) goto err;
+    cc = NCCLASS(np1);
+    r = add_ctype_to_cc(cc, extend, 0, 0, env);
+    if (r != 0) goto err;
+    r = add_ctype_to_cc(cc, propname2ctype(env, "Grapheme_Cluster_Break=SpacingMark"), 0, 0, env);
+    if (r != 0) goto err;
+    r = add_code_range(&(cc->mbuf), env, 0x200D, 0x200D);
+    if (r != 0) goto err;
+
+    tmp = node_new_quantifier(0, REPEAT_INFINITE, 0);
+    if (IS_NULL(tmp)) goto err;
+    NQTFR(tmp)->target = np1;
+    np1 = tmp;
+
+    tmp = node_new_list(np1, NULL_NODE);
+    if (IS_NULL(tmp)) goto err;
+    list = tmp;
+    np1 = NULL;
+
+    /* ( RI-sequence | Hangul-Syllable | !Control ) */
+    /* !Control */
+    np1 = node_new_cclass();
+    if (IS_NULL(np1)) goto err;
+    cc = NCCLASS(np1);
+    r = add_ctype_to_cc(cc, propname2ctype(env, "Grapheme_Cluster_Break=Control"), 1, 0, env);
+    if (r != 0) goto err;
+    if (ONIGENC_MBC_MINLEN(env->enc) > 1) {
+      BBuf *pbuf2 = NULL;
+      r = add_code_range(&pbuf1, env, 0x0a, 0x0a);
       if (r != 0) goto err;
-      NCCLASS_SET_NOT(cc1);
-
-      /* \p{M}* */
-      np2 = node_new_cclass();
-      if (IS_NULL(np2)) goto err;
-      cc2 = NCCLASS(np2);
-      r = add_ctype_to_cc(cc2, ctype, 0, 0, env);
+      r = add_code_range(&pbuf1, env, 0x0d, 0x0d);
       if (r != 0) goto err;
-
-      qn = node_new_quantifier(0, REPEAT_INFINITE, 0);
-      if (IS_NULL(qn)) goto err;
-      NQTFR(qn)->target = np2;
-      np2 = NULL;
-
-      /* \P{M}\p{M}* */
-      list2 = node_new_list(qn, NULL_NODE);
-      if (IS_NULL(list2)) goto err;
-      qn = NULL;
-      list1 = node_new_list(np1, list2);
-      if (IS_NULL(list1)) goto err;
-      np1 = NULL;
-      list2 = NULL;
-
-      /* (?>...) */
-      *np = node_new_enclose(ENCLOSE_STOP_BACKTRACK);
-      if (IS_NULL(*np)) goto err;
-      NENCLOSE(*np)->target = list1;
-      return ONIG_NORMAL;
+      r = and_code_range_buf(cc->mbuf, 0, pbuf1, 1, &pbuf2, env);
+      if (r != 0) goto err;
+      bbuf_free(pbuf1);
+      pbuf1 = NULL;
+      bbuf_free(cc->mbuf);
+      cc->mbuf = pbuf2;
     }
-  }
-#endif /* USE_UNICODE_PROPERTIES */
-  if (IS_NULL(*np)) {
+    else {
+      BITSET_CLEAR_BIT(cc->bs, 0x0a);
+      BITSET_CLEAR_BIT(cc->bs, 0x0d);
+    }
+
+    tmp = onig_node_new_alt(np1, NULL_NODE);
+    if (IS_NULL(tmp)) goto err;
+    alt = tmp;
+    np1 = NULL;
+
+    /* Hangul-Syllable
+     *  := L* V+ T*
+     *  | L* LV V* T*
+     *  | L* LVT T*
+     *  | L+
+     *  | T+ */
+
+    /* T+ */
+    np1 = node_new_cclass();
+    if (IS_NULL(np1)) goto err;
+    cc = NCCLASS(np1);
+    r = add_ctype_to_cc(cc, propname2ctype(env, "Grapheme_Cluster_Break=T"), 0, 0, env);
+    if (r != 0) goto err;
+
+    tmp = node_new_quantifier(1, REPEAT_INFINITE, 0);
+    if (IS_NULL(tmp)) goto err;
+    NQTFR(tmp)->target = np1;
+    np1 = tmp;
+
+    tmp = onig_node_new_alt(np1, alt);
+    if (IS_NULL(tmp)) goto err;
+    alt = tmp;
+    np1 = NULL;
+
+    /* L+ */
+    np1 = node_new_cclass();
+    if (IS_NULL(np1)) goto err;
+    cc = NCCLASS(np1);
+    r = add_ctype_to_cc(cc, propname2ctype(env, "Grapheme_Cluster_Break=L"), 0, 0, env);
+    if (r != 0) goto err;
+
+    tmp = node_new_quantifier(1, REPEAT_INFINITE, 0);
+    if (IS_NULL(tmp)) goto err;
+    NQTFR(tmp)->target = np1;
+    np1 = tmp;
+
+    tmp = onig_node_new_alt(np1, alt);
+    if (IS_NULL(tmp)) goto err;
+    alt = tmp;
+    np1 = NULL;
+
+    /* L* LVT T* */
+    np1 = node_new_cclass();
+    if (IS_NULL(np1)) goto err;
+    cc = NCCLASS(np1);
+    r = add_ctype_to_cc(cc, propname2ctype(env, "Grapheme_Cluster_Break=T"), 0, 0, env);
+    if (r != 0) goto err;
+
+    tmp = node_new_quantifier(0, REPEAT_INFINITE, 0);
+    if (IS_NULL(tmp)) goto err;
+    NQTFR(tmp)->target = np1;
+    np1 = tmp;
+
+    tmp = node_new_list(np1, NULL_NODE);
+    if (IS_NULL(tmp)) goto err;
+    list2 = tmp;
+    np1 = NULL;
+
+    np1 = node_new_cclass();
+    if (IS_NULL(np1)) goto err;
+    cc = NCCLASS(np1);
+    r = add_ctype_to_cc(cc, propname2ctype(env, "Grapheme_Cluster_Break=LVT"), 0, 0, env);
+    if (r != 0) goto err;
+
+    tmp = node_new_list(np1, list2);
+    if (IS_NULL(tmp)) goto err;
+    list2 = tmp;
+    np1 = NULL;
+
+    np1 = node_new_cclass();
+    if (IS_NULL(np1)) goto err;
+    cc = NCCLASS(np1);
+    r = add_ctype_to_cc(cc, propname2ctype(env, "Grapheme_Cluster_Break=L"), 0, 0, env);
+    if (r != 0) goto err;
+
+    tmp = node_new_quantifier(0, REPEAT_INFINITE, 0);
+    if (IS_NULL(tmp)) goto err;
+    NQTFR(tmp)->target = np1;
+    np1 = tmp;
+
+    tmp = node_new_list(np1, list2);
+    if (IS_NULL(tmp)) goto err;
+    list2 = tmp;
+    np1 = NULL;
+
+    tmp = onig_node_new_alt(list2, alt);
+    if (IS_NULL(tmp)) goto err;
+    alt = tmp;
+    list2 = NULL;
+
+    /* L* LV V* T* */
+    np1 = node_new_cclass();
+    if (IS_NULL(np1)) goto err;
+    cc = NCCLASS(np1);
+    r = add_ctype_to_cc(cc, propname2ctype(env, "Grapheme_Cluster_Break=T"), 0, 0, env);
+    if (r != 0) goto err;
+
+    tmp = node_new_quantifier(0, REPEAT_INFINITE, 0);
+    if (IS_NULL(tmp)) goto err;
+    NQTFR(tmp)->target = np1;
+    np1 = tmp;
+
+    tmp = node_new_list(np1, NULL_NODE);
+    if (IS_NULL(tmp)) goto err;
+    list2 = tmp;
+    np1 = NULL;
+
+    np1 = node_new_cclass();
+    if (IS_NULL(np1)) goto err;
+    cc = NCCLASS(np1);
+    r = add_ctype_to_cc(cc, propname2ctype(env, "Grapheme_Cluster_Break=V"), 0, 0, env);
+    if (r != 0) goto err;
+
+    tmp = node_new_quantifier(0, REPEAT_INFINITE, 0);
+    if (IS_NULL(tmp)) goto err;
+    NQTFR(tmp)->target = np1;
+    np1 = tmp;
+
+    tmp = node_new_list(np1, list2);
+    if (IS_NULL(tmp)) goto err;
+    list2 = tmp;
+    np1 = NULL;
+
+    np1 = node_new_cclass();
+    if (IS_NULL(np1)) goto err;
+    cc = NCCLASS(np1);
+    r = add_ctype_to_cc(cc, propname2ctype(env, "Grapheme_Cluster_Break=LV"), 0, 0, env);
+    if (r != 0) goto err;
+
+    tmp = node_new_list(np1, list2);
+    if (IS_NULL(tmp)) goto err;
+    list2 = tmp;
+    np1 = NULL;
+
+    np1 = node_new_cclass();
+    if (IS_NULL(np1)) goto err;
+    cc = NCCLASS(np1);
+    r = add_ctype_to_cc(cc, propname2ctype(env, "Grapheme_Cluster_Break=L"), 0, 0, env);
+    if (r != 0) goto err;
+
+    tmp = node_new_quantifier(0, REPEAT_INFINITE, 0);
+    if (IS_NULL(tmp)) goto err;
+    NQTFR(tmp)->target = np1;
+    np1 = tmp;
+
+    tmp = node_new_list(np1, list2);
+    if (IS_NULL(tmp)) goto err;
+    list2 = tmp;
+    np1 = NULL;
+
+    tmp = onig_node_new_alt(list2, alt);
+    if (IS_NULL(tmp)) goto err;
+    alt = tmp;
+    list2 = NULL;
+
+    /* L* V+ T* */
+    np1 = node_new_cclass();
+    if (IS_NULL(np1)) goto err;
+    cc = NCCLASS(np1);
+    r = add_ctype_to_cc(cc, propname2ctype(env, "Grapheme_Cluster_Break=T"), 0, 0, env);
+    if (r != 0) goto err;
+
+    tmp = node_new_quantifier(0, REPEAT_INFINITE, 0);
+    if (IS_NULL(tmp)) goto err;
+    NQTFR(tmp)->target = np1;
+    np1 = tmp;
+
+    tmp = node_new_list(np1, NULL_NODE);
+    if (IS_NULL(tmp)) goto err;
+    list2 = tmp;
+    np1 = NULL;
+
+    np1 = node_new_cclass();
+    if (IS_NULL(np1)) goto err;
+    cc = NCCLASS(np1);
+    r = add_ctype_to_cc(cc, propname2ctype(env, "Grapheme_Cluster_Break=V"), 0, 0, env);
+    if (r != 0) goto err;
+
+    tmp = node_new_quantifier(1, REPEAT_INFINITE, 0);
+    if (IS_NULL(tmp)) goto err;
+    NQTFR(tmp)->target = np1;
+    np1 = tmp;
+
+    tmp = node_new_list(np1, list2);
+    if (IS_NULL(tmp)) goto err;
+    list2 = tmp;
+    np1 = NULL;
+
+    np1 = node_new_cclass();
+    if (IS_NULL(np1)) goto err;
+    cc = NCCLASS(np1);
+    r = add_ctype_to_cc(cc, propname2ctype(env, "Grapheme_Cluster_Break=L"), 0, 0, env);
+    if (r != 0) goto err;
+
+    tmp = node_new_quantifier(0, REPEAT_INFINITE, 0);
+    if (IS_NULL(tmp)) goto err;
+    NQTFR(tmp)->target = np1;
+    np1 = tmp;
+
+    tmp = node_new_list(np1, list2);
+    if (IS_NULL(tmp)) goto err;
+    list2 = tmp;
+    np1 = NULL;
+
+    tmp = onig_node_new_alt(list2, alt);
+    if (IS_NULL(tmp)) goto err;
+    alt = tmp;
+    list2 = NULL;
+
+    /* Emoji sequence := (E_Base | EBG) Extend* E_Modifier?
+     *                   (ZWJ (Glue_After_Zwj | EBG Extend* E_Modifier?) )* */
+
+    /* ZWJ (Glue_After_Zwj | E_Base_GAZ Extend* E_Modifier?) */
+    np1 = node_new_cclass();
+    if (IS_NULL(np1)) goto err;
+    cc = NCCLASS(np1);
+    r = add_ctype_to_cc(cc, propname2ctype(env, "Grapheme_Cluster_Break=E_Modifier"), 0, 0, env);
+    if (r != 0) goto err;
+
+    tmp = node_new_quantifier(0, 1, 0);
+    if (IS_NULL(tmp)) goto err;
+    NQTFR(tmp)->target = np1;
+    np1 = tmp;
+
+    tmp = node_new_list(np1, NULL_NODE);
+    if (IS_NULL(tmp)) goto err;
+    list2 = tmp;
+    np1 = NULL;
+
+    np1 = node_new_cclass();
+    if (IS_NULL(np1)) goto err;
+    cc = NCCLASS(np1);
+    r = add_ctype_to_cc(cc, extend, 0, 0, env);
+    if (r != 0) goto err;
+
+    tmp = node_new_quantifier(0, REPEAT_INFINITE, 0);
+    if (IS_NULL(tmp)) goto err;
+    NQTFR(tmp)->target = np1;
+    np1 = tmp;
+
+    tmp = node_new_list(np1, list2);
+    if (IS_NULL(tmp)) goto err;
+    list2 = tmp;
+    np1 = NULL;
+
+    np1 = node_new_cclass();
+    if (IS_NULL(np1)) goto err;
+    cc = NCCLASS(np1);
+    r = add_ctype_to_cc(cc, propname2ctype(env, "Grapheme_Cluster_Break=E_Base_GAZ"), 0, 0, env);
+    if (r != 0) goto err;
+
+    tmp = node_new_list(np1, list2);
+    if (IS_NULL(tmp)) goto err;
+    list2 = tmp;
+    np1 = NULL;
+
+    tmp = onig_node_new_alt(list2, NULL_NODE);
+    if (IS_NULL(tmp)) goto err;
+    alt2 = tmp;
+    list2 = NULL;
+
+    /* Glue_After_Zwj */
+    np1 = node_new_cclass();
+    if (IS_NULL(np1)) goto err;
+    cc = NCCLASS(np1);
+    r = add_ctype_to_cc(cc, extend, 0, 0, env);
+    if (r != 0) goto err;
+
+    tmp = node_new_quantifier(0, REPEAT_INFINITE, 0);
+    if (IS_NULL(tmp)) goto err;
+    NQTFR(tmp)->target = np1;
+    np1 = tmp;
+
+    tmp = node_new_list(np1, NULL_NODE);
+    if (IS_NULL(tmp)) goto err;
+    list2 = tmp;
+    np1 = NULL;
+
+    np1 = node_new_cclass();
+    if (IS_NULL(np1)) goto err;
+    cc = NCCLASS(np1);
+    {
+      static const OnigCodePoint ranges[] = {
+	13,
+	0x1F308, 0x1F308,
+	0x1F33E, 0x1F33E,
+	0x1F373, 0x1F373,
+	0x1F393, 0x1F393,
+	0x1F3A4, 0x1F3A4,
+	0x1F3A8, 0x1F3A8,
+	0x1F3EB, 0x1F3EB,
+	0x1F3ED, 0x1F3ED,
+	0x1F4BB, 0x1F4BC,
+	0x1F527, 0x1F527,
+	0x1F52C, 0x1F52C,
+	0x1F680, 0x1F680,
+	0x1F692, 0x1F692,
+      };
+      r = add_ctype_to_cc_by_range(cc, -1, 0, env, sb_out, ranges);
+      if (r != 0) goto err;
+    }
+    r = add_ctype_to_cc(cc, propname2ctype(env, "Grapheme_Cluster_Break=Glue_After_Zwj"), 0, 0, env);
+    if (r != 0) goto err;
+
+    tmp = node_new_list(np1, list2);
+    if (IS_NULL(tmp)) goto err;
+    list2 = tmp;
+    np1 = NULL;
+
+    tmp = onig_node_new_alt(list2, alt2);
+    if (IS_NULL(tmp)) goto err;
+    alt2 = tmp;
+    list2 = NULL;
+
+    /* Emoji variation sequence
+     * http://unicode.org/Public/emoji/4.0/emoji-zwj-sequences.txt
+     */
+    num1 = ONIGENC_CODE_TO_MBC(env->enc, 0xfe0f, buf);
+    if (num1 < 0) return num1;
+    np1 = node_new_str_raw(buf, buf + num1);
+    if (IS_NULL(np1)) goto err;
+
+    tmp = node_new_quantifier(0, 1, 0);
+    if (IS_NULL(tmp)) goto err;
+    NQTFR(tmp)->target = np1;
+    np1 = tmp;
+
+    tmp = node_new_list(np1, NULL_NODE);
+    if (IS_NULL(tmp)) goto err;
+    list2 = tmp;
+    np1 = NULL;
+
+    np1 = node_new_cclass();
+    if (IS_NULL(np1)) goto err;
+    cc = NCCLASS(np1);
+    {
+      static const OnigCodePoint ranges[] = {
+	4,
+	0x2640, 0x2640,
+	0x2642, 0x2642,
+	0x2695, 0x2696,
+	0x2708, 0x2708,
+      };
+      r = add_ctype_to_cc_by_range(cc, -1, 0, env, sb_out, ranges);
+      if (r != 0) goto err;
+    }
+
+    tmp = node_new_list(np1, list2);
+    if (IS_NULL(tmp)) goto err;
+    list2 = tmp;
+    np1 = NULL;
+
+    tmp = onig_node_new_alt(list2, alt2);
+    if (IS_NULL(tmp)) goto err;
+    alt2 = tmp;
+    list2 = NULL;
+
+    tmp = node_new_list(alt2, NULL_NODE);
+    if (IS_NULL(tmp)) goto err;
+    list2 = tmp;
+    alt2 = NULL;
+
+    /* ZWJ */
+    num1 = ONIGENC_CODE_TO_MBC(env->enc, 0x200D, buf);
+    if (num1 < 0) return num1;
+    np1 = node_new_str_raw(buf, buf + num1);
+    if (IS_NULL(np1)) goto err;
+
+    tmp = node_new_list(np1, list2);
+    if (IS_NULL(tmp)) goto err;
+    list2 = tmp;
+    np1 = NULL;
+
+    tmp = node_new_quantifier(0, REPEAT_INFINITE, 0);
+    if (IS_NULL(tmp)) goto err;
+    NQTFR(tmp)->target = list2;
+    np1 = tmp;
+    list2 = NULL;
+
+    tmp = node_new_list(np1, NULL_NODE);
+    if (IS_NULL(tmp)) goto err;
+    list2 = tmp;
+    np1 = NULL;
+
+    /* E_Modifier? */
+    np1 = node_new_cclass();
+    if (IS_NULL(np1)) goto err;
+    cc = NCCLASS(np1);
+    r = add_ctype_to_cc(cc, propname2ctype(env, "Grapheme_Cluster_Break=E_Modifier"), 0, 0, env);
+    if (r != 0) goto err;
+
+    tmp = node_new_quantifier(0, 1, 0);
+    if (IS_NULL(tmp)) goto err;
+    NQTFR(tmp)->target = np1;
+    np1 = tmp;
+
+    tmp = node_new_list(np1, list2);
+    if (IS_NULL(tmp)) goto err;
+    list2 = tmp;
+    np1 = NULL;
+
+    /* Extend* */
+    np1 = node_new_cclass();
+    if (IS_NULL(np1)) goto err;
+    cc = NCCLASS(np1);
+    r = add_ctype_to_cc(cc, extend, 0, 0, env);
+    if (r != 0) goto err;
+
+    tmp = node_new_quantifier(0, REPEAT_INFINITE, 0);
+    if (IS_NULL(tmp)) goto err;
+    NQTFR(tmp)->target = np1;
+    np1 = tmp;
+
+    tmp = node_new_list(np1, list2);
+    if (IS_NULL(tmp)) goto err;
+    list2 = tmp;
+    np1 = NULL;
+
+    /* (E_Base | EBG) */
+    np1 = node_new_cclass();
+    if (IS_NULL(np1)) goto err;
+    cc = NCCLASS(np1);
+    {
+      static const OnigCodePoint ranges[] = {
+	8,
+	0x1F3C2, 0x1F3C2,
+	0x1F3C7, 0x1F3C7,
+	0x1F3CC, 0x1F3CC,
+	0x1F3F3, 0x1F3F3,
+	0x1F441, 0x1F441,
+	0x1F46F, 0x1F46F,
+	0x1F574, 0x1F574,
+	0x1F6CC, 0x1F6CC,
+      };
+      r = add_ctype_to_cc_by_range(cc, -1, 0, env, sb_out, ranges);
+      if (r != 0) goto err;
+    }
+    r = add_ctype_to_cc(cc, propname2ctype(env, "Grapheme_Cluster_Break=E_Base"), 0, 0, env);
+    if (r != 0) goto err;
+    r = add_ctype_to_cc(cc, propname2ctype(env, "Grapheme_Cluster_Break=E_Base_GAZ"), 0, 0, env);
+    if (r != 0) goto err;
+
+    tmp = node_new_list(np1, list2);
+    if (IS_NULL(tmp)) goto err;
+    list2 = tmp;
+    np1 = NULL;
+
+    tmp = onig_node_new_alt(list2, alt);
+    if (IS_NULL(tmp)) goto err;
+    alt = tmp;
+    list2 = NULL;
+
+    /* ZWJ (E_Base_GAZ | Glue_After_Zwj) E_Modifier? */
+    /* a sequence starting with ZWJ seems artificial, but GraphemeBreakTest
+     * has such examples.
+     * http://www.unicode.org/Public/9.0.0/ucd/auxiliary/GraphemeBreakTest.html
+     */
+    np1 = node_new_cclass();
+    if (IS_NULL(np1)) goto err;
+    cc = NCCLASS(np1);
+    r = add_ctype_to_cc(cc, propname2ctype(env, "Grapheme_Cluster_Break=E_Modifier"), 0, 0, env);
+    if (r != 0) goto err;
+
+    tmp = node_new_quantifier(0, 1, 0);
+    if (IS_NULL(tmp)) goto err;
+    NQTFR(tmp)->target = np1;
+    np1 = tmp;
+
+    tmp = node_new_list(np1, NULL_NODE);
+    if (IS_NULL(tmp)) goto err;
+    list2 = tmp;
+    np1 = NULL;
+
+    np1 = node_new_cclass();
+    if (IS_NULL(np1)) goto err;
+    cc = NCCLASS(np1);
+    r = add_ctype_to_cc(cc, propname2ctype(env, "Grapheme_Cluster_Break=Glue_After_Zwj"), 0, 0, env);
+    if (r != 0) goto err;
+    r = add_ctype_to_cc(cc, propname2ctype(env, "Grapheme_Cluster_Break=E_Base_GAZ"), 0, 0, env);
+    if (r != 0) goto err;
+
+    tmp = node_new_list(np1, list2);
+    if (IS_NULL(tmp)) goto err;
+    list2 = tmp;
+    np1 = NULL;
+
+    num1 = ONIGENC_CODE_TO_MBC(env->enc, 0x200D, buf);
+    if (num1 < 0) return num1;
+    np1 = node_new_str_raw(buf, buf + num1);
+    if (IS_NULL(np1)) goto err;
+
+    tmp = node_new_list(np1, list2);
+    if (IS_NULL(tmp)) goto err;
+    list2 = tmp;
+    np1 = NULL;
+
+    tmp = onig_node_new_alt(list2, alt);
+    if (IS_NULL(tmp)) goto err;
+    alt = tmp;
+    list2 = NULL;
+
+    /* RI-Sequence := Regional_Indicator{2} */
+    np1 = node_new_cclass();
+    if (IS_NULL(np1)) goto err;
+    cc = NCCLASS(np1);
+    r = add_code_range(&(cc->mbuf), env, 0x1F1E6, 0x1F1FF);
+    if (r != 0) goto err;
+
+    tmp = node_new_quantifier(2, 2, 0);
+    if (IS_NULL(tmp)) goto err;
+    NQTFR(tmp)->target = np1;
+    np1 = tmp;
+
+    tmp = node_new_list(np1, list2);
+    if (IS_NULL(tmp)) goto err;
+    list2 = tmp;
+    np1 = NULL;
+
+    tmp = onig_node_new_alt(list2, alt);
+    if (IS_NULL(tmp)) goto err;
+    alt = tmp;
+    list2 = NULL;
+
+    tmp = node_new_list(alt, list);
+    if (IS_NULL(tmp)) goto err;
+    list = tmp;
+    alt = NULL;
+
+    /* Prepend* */
+    np1 = node_new_cclass();
+    if (IS_NULL(np1)) goto err;
+    cc = NCCLASS(np1);
+    r = add_ctype_to_cc(cc, propname2ctype(env, "Grapheme_Cluster_Break=Prepend"), 0, 0, env);
+    if (r != 0) goto err;
+
+    tmp = node_new_quantifier(0, REPEAT_INFINITE, 0);
+    if (IS_NULL(tmp)) goto err;
+    NQTFR(tmp)->target = np1;
+    np1 = tmp;
+
+    tmp = node_new_list(np1, list);
+    if (IS_NULL(tmp)) goto err;
+    list = tmp;
+    np1 = NULL;
+
     /* PerlSyntax: (?s:.), RubySyntax: (?m:.) */
-    OnigOptionType option;
     np1 = node_new_anychar();
     if (IS_NULL(np1)) goto err;
 
     option = env->option;
     ONOFF(option, ONIG_OPTION_MULTILINE, 0);
+    tmp = node_new_option(option);
+    if (IS_NULL(tmp)) goto err;
+    NENCLOSE(tmp)->target = np1;
+    np1 = tmp;
+
+    tmp = onig_node_new_alt(np1, NULL_NODE);
+    if (IS_NULL(tmp)) goto err;
+    alt = tmp;
+    np1 = NULL;
+
+    /* Prepend+ */
+    num1 = ONIGENC_CODE_TO_MBC(env->enc, 0x200D, buf);
+    if (num1 < 0) return num1;
+    np1 = node_new_str_raw(buf, buf + num1);
+    if (IS_NULL(np1)) goto err;
+
+    tmp = node_new_quantifier(0, 1, 0);
+    if (IS_NULL(tmp)) goto err;
+    NQTFR(tmp)->target = np1;
+    np1 = tmp;
+
+    tmp = node_new_list(np1, NULL_NODE);
+    if (IS_NULL(tmp)) goto err;
+    list2 = tmp;
+    np1 = NULL;
+
+    np1 = node_new_cclass();
+    if (IS_NULL(np1)) goto err;
+    cc = NCCLASS(np1);
+    r = add_ctype_to_cc(cc, propname2ctype(env, "Grapheme_Cluster_Break=Prepend"), 0, 0, env);
+    if (r != 0) goto err;
+
+    tmp = node_new_quantifier(1, REPEAT_INFINITE, 0);
+    if (IS_NULL(tmp)) goto err;
+    NQTFR(tmp)->target = np1;
+    np1 = tmp;
+
+    tmp = node_new_list(np1, list2);
+    if (IS_NULL(tmp)) goto err;
+    list2 = tmp;
+    np1 = NULL;
+
+    tmp = onig_node_new_alt(list2, alt);
+    if (IS_NULL(tmp)) goto err;
+    alt = tmp;
+    list2 = NULL;
+
+    tmp = onig_node_new_alt(list, alt);
+    if (IS_NULL(tmp)) goto err;
+    alt = tmp;
+    list = NULL;
+  }
+  else
+#endif /* USE_UNICODE_PROPERTIES */
+  {
+    /* PerlSyntax: (?s:.), RubySyntax: (?m:.) */
+    np1 = node_new_anychar();
+    if (IS_NULL(np1)) goto err;
+
+    option = env->option;
+    ONOFF(option, ONIG_OPTION_MULTILINE, 0);
+    tmp = node_new_option(option);
+    if (IS_NULL(tmp)) goto err;
+    NENCLOSE(tmp)->target = np1;
+    np1 = tmp;
+
+    alt = onig_node_new_alt(np1, NULL_NODE);
+    if (IS_NULL(alt)) goto err;
+    np1 = NULL;
+  }
+
+  /* \x0D\x0A */
+  num1 = ONIGENC_CODE_TO_MBC(env->enc, 0x0D, buf);
+  if (num1 < 0) return num1;
+  num2 = ONIGENC_CODE_TO_MBC(env->enc, 0x0A, buf + num1);
+  if (num2 < 0) return num2;
+  np1 = node_new_str_raw(buf, buf + num1 + num2);
+  if (IS_NULL(np1)) goto err;
+
+  tmp = onig_node_new_alt(np1, alt);
+  if (IS_NULL(tmp)) goto err;
+  alt = tmp;
+  np1 = NULL;
+
+  /* (?>\x0D\x0A|...) */
+  tmp = node_new_enclose(ENCLOSE_STOP_BACKTRACK);
+  if (IS_NULL(tmp)) goto err;
+  NENCLOSE(tmp)->target = alt;
+  np1 = tmp;
+
+#ifdef USE_UNICODE_PROPERTIES
+  if (ONIGENC_IS_UNICODE(env->enc)) {
+    /* Don't ignore case. */
+    option = env->option;
+    ONOFF(option, ONIG_OPTION_IGNORECASE, 1);
     *np = node_new_option(option);
     if (IS_NULL(*np)) goto err;
     NENCLOSE(*np)->target = np1;
+  }
+  else
+#endif
+  {
+    *np = np1;
   }
   return ONIG_NORMAL;
 
  err:
   onig_node_free(np1);
-  onig_node_free(np2);
-  onig_node_free(qn);
-  onig_node_free(list1);
+  onig_node_free(list);
   onig_node_free(list2);
+  onig_node_free(alt);
+  onig_node_free(alt2);
+  bbuf_free(pbuf1);
   return (r == 0) ? ONIGERR_MEMORY : r;
 }
 

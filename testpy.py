@@ -1281,6 +1281,9 @@ def main():
     n("a{0,100001}", "", err=onigmo.ONIGERR_TOO_BIG_NUMBER_FOR_REPEAT_RANGE)
     n("a{5,1}", "", err=onigmo.ONIGERR_UPPER_SMALLER_THAN_LOWER_IN_REPEAT_RANGE)
     x2("abc{1}", "abcc", 0, 3)
+    x3("\\(((?:[^(]|\\g<0>)*)\\)", "(abc)(abc)", 1, 4, 1)   # Issue #48
+    x3("\\(((?:[^(]|\\g<0>)*)\\)", "((abc)(abc))", 1, 11, 1)
+    x3("\\(((?:[^(]|(\\g<0>))*)\\)", "((abc)(abc))", 6, 11, 2)
 
     # ONIG_OPTION_FIND_LONGEST option
     x2("foo|foobar", "foobar", 0, 3)
@@ -1341,8 +1344,23 @@ def main():
 
     # extended grapheme cluster
     x2("\\X{5}", "あいab\n", 0, 5)
+    x2("\\X", "\n", 0, 1)
+    x2("\\X", "\r", 0, 1)
+    x2("\\X{3}", "\r\r\n\n", 0, 4)
     if is_unicode_encoding(onig_encoding):
         x2("\\X", "\u306F\u309A\n", 0, 2)
+        x2("\\A\\X\\z", "\u0020\u200d", 0, 2)
+        x2("\\A\\X\\z", "\u0600\u0600", 0, 2)
+        x2("\\A\\X\\z", "\u0600\u0020", 0, 2)
+        x2("\\A\\X\\z", "\u261d\U0001F3FB", 0, 2)
+        x2("\\A\\X\\z", "\U0001f600", 0, 1)
+        x2("\\A\\X\\z", "\u0020\u0308", 0, 2)
+        x2("\\A\\X\\X\\z", "\u000a\u0308", 0, 2)
+        x2("\\A\\X\\X\\z", "\u000d\u0308", 0, 2)
+        x2("\\A\\X\\z", "\U0001F477\U0001F3FF\u200D\u2640\uFE0F", 0, 5)
+        x2("\\A\\X\\z", "\U0001F468\u200D\U0001F393", 0, 3)
+        x2("\\A\\X\\z", "\U0001F46F\u200D\u2642\uFE0F", 0, 4)
+        x2("\\A\\X\\z", "\U0001F469\u200d\u2764\ufe0f\u200d\U0001F469", 0, 6)
 
     # keep
     x2("ab\\Kcd", "abcd", 2, 4)

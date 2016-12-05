@@ -727,7 +727,7 @@ onigenc_unicode_case_map(OnigCaseFoldType* flagP,
 
 	  MODIFIED;
 	  if (flags & OnigCaseFoldFlags(folded->n) & ONIGENC_CASE_SPECIALS) { /* special */
-	    OnigCodePoint *SpecialsStart = CaseMappingSpecials + OnigSpecialIndexDecode(folded->n);
+	    const OnigCodePoint *SpecialsStart = CaseMappingSpecials + OnigSpecialIndexDecode(folded->n);
 
 	    if (OnigCaseFoldFlags(folded->n) & ONIGENC_CASE_IS_TITLECASE) { /* swapCASE available */
 	      if ((flags & (ONIGENC_CASE_UPCASE | ONIGENC_CASE_DOWNCASE))
@@ -770,19 +770,10 @@ SpecialsCopy:
 	  }
 	}
       }
-      else if ((folded = onigenc_unicode_unfold1_lookup(code)) != 0) {  /* data about character found in CaseUnfold_11_Table */
-	if (flags & OnigCaseFoldFlags(folded->n)) { /* needs and data availability match */
-	  MODIFIED;
-	  if (flags & OnigCaseFoldFlags(folded->n) & ONIGENC_CASE_TITLECASE)
-	    code = folded->code[1];
-	  else
-	    code = folded->code[0];
-	}
-	else if ((flags & (ONIGENC_CASE_UPCASE))
-	    && (code == 0x03B9 || code == 0x03BC)) { /* GREEK SMALL LETTERs IOTA/MU */
-	  MODIFIED;
-	  code = folded->code[1];
-	}
+      else if ((folded = onigenc_unicode_unfold1_lookup(code)) != 0  /* data about character found in CaseUnfold_11_Table */
+	  && flags & OnigCaseFoldFlags(folded->n)) { /* needs and data availability match */
+	MODIFIED;
+	code = folded->code[(flags & OnigCaseFoldFlags(folded->n) & ONIGENC_CASE_TITLECASE) ? 1 : 0];
       }
     }
     to += ONIGENC_CODE_TO_MBC(enc, code, to);
