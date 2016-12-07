@@ -36,11 +36,11 @@
 # define USE_MATCH_RANGE_MUST_BE_INSIDE_OF_SPECIFIED_RANGE
 #endif
 
-#ifndef USE_DIRECT_THREADED_VM
+#ifndef USE_TOKEN_THREADED_VM
 # ifdef __GNUC__
-#  define USE_DIRECT_THREADED_VM 1
+#  define USE_TOKEN_THREADED_VM 1
 # else
-#  define USE_DIRECT_THREADED_VM 0
+#  define USE_TOKEN_THREADED_VM 0
 # endif
 #endif
 
@@ -1258,44 +1258,6 @@ static int backref_match_at_nested_level(regex_t* reg,
 }
 #endif /* USE_BACKREF_WITH_LEVEL */
 
-#ifdef USE_SUBEXP_CALL
-static UChar *
-get_captured_start_pos(OnigStackType* top, OnigStackType* stk_base,
-    int mem_num)
-{
-  int level = 0, nest = -1;
-  OnigStackType* k;
-
-  k = top;
-  k--;
-  while (k >= stk_base) {
-    if (k->type == STK_CALL_FRAME) {
-      level--;
-    }
-    else if (k->type == STK_RETURN) {
-      level++;
-    }
-    else {
-      if (k->type == STK_MEM_START) {
-	if ((level == nest) && (k->u.mem.num == mem_num)) {
-	  /* Return the start position of the top nest level. */
-	  return k->u.mem.pstr;
-	}
-      }
-      else if (k->type == STK_MEM_END) {
-	if ((nest < 0) && (k->u.mem.num == mem_num)) {
-	  /* Find the top nest level. */
-	  nest = level;
-	}
-      }
-    }
-    k--;
-  }
-
-  return NULL;
-}
-#endif /* USE_SUBEXP_CALL */
-
 
 #ifdef ONIG_DEBUG_STATISTICS
 
@@ -1450,7 +1412,7 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
   int num_comb_exp_check = reg->num_comb_exp_check;
 #endif
 
-#if USE_DIRECT_THREADED_VM
+#if USE_TOKEN_THREADED_VM
 # define OP_OFFSET  1
 # define VM_LOOP JUMP;
 # define VM_LOOP_END
@@ -1625,7 +1587,7 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
     &&L_DEFAULT
 # endif
   };
-#else /* USE_DIRECT_THREADED_VM */
+#else /* USE_TOKEN_THREADED_VM */
 
 # define OP_OFFSET  0
 # define VM_LOOP                                \
@@ -1638,7 +1600,7 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
 # define DEFAULT default:
 # define NEXT break
 # define JUMP continue; break
-#endif /* USE_DIRECT_THREADED_VM */
+#endif /* USE_TOKEN_THREADED_VM */
 
 
 #ifdef USE_SUBEXP_CALL
@@ -1741,17 +1703,8 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
 	  region->end[0] = s - str;
 	  for (i = 1; i <= num_mem; i++) {
 	    if (mem_end_stk[i] != INVALID_STACK_INDEX) {
-	      if (BIT_STATUS_AT(reg->bt_mem_start, i)) {
-	        UChar *pstr = NULL;
-
-#ifdef USE_SUBEXP_CALL
-		if (reg->num_call > 0)
-		  pstr = get_captured_start_pos(stk, stk_base, i);
-#endif
-		if (pstr == NULL)
-		  pstr = STACK_AT(mem_start_stk[i])->u.mem.pstr;
-		region->beg[i] = pstr - str;
-	      }
+	      if (BIT_STATUS_AT(reg->bt_mem_start, i))
+		region->beg[i] = STACK_AT(mem_start_stk[i])->u.mem.pstr - str;
 	      else
 		region->beg[i] = (UChar* )((void* )mem_start_stk[i]) - str;
 
