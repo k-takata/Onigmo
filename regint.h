@@ -31,10 +31,10 @@
  */
 
 /* for debug */
-/* #define ONIG_DEBUG_PARSE_TREE */
-/* #define ONIG_DEBUG_COMPILE */
-/* #define ONIG_DEBUG_SEARCH */
-/* #define ONIG_DEBUG_MATCH */
+ #define ONIG_DEBUG_PARSE_TREE */
+ #define ONIG_DEBUG_COMPILE */
+ #define ONIG_DEBUG_SEARCH */
+ #define ONIG_DEBUG_MATCH */
 /* #define ONIG_DEBUG_MEMLEAK */
 /* #define ONIG_DONT_OPTIMIZE */
 
