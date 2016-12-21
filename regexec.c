@@ -404,7 +404,7 @@ onig_region_copy(OnigRegion* to, const OnigRegion* from)
 #define STK_RETURN                 0x0900
 #define STK_VOID                   0x0a00  /* for fill a blank */
 #define STK_ABSENT_POS             0x0b00  /* for absent */
-#define STK_ABSENT                 0x0c00  /* for absent */
+#define STK_ABSENT                 0x0c00  /* absent inner loop marker */
 
 /* stack type check mask */
 #define STK_MASK_POP_USED          0x00ff
@@ -3088,14 +3088,15 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
 	  goto fail;
 	}
 	else if ((s >= aend) && (s > absent)) {
+	  /* All possible points were found. Try matching after (?~...). */
 	  DATA_ENSURE(0);
 	  p += addr;
 	}
 	else {
-	  STACK_PUSH_ALT(p + addr, s, sprev, pkeep);
+	  STACK_PUSH_ALT(p + addr, s, sprev, pkeep); /* Push possible point. */
 	  n = enclen(encode, s, end);
 	  STACK_PUSH_ABSENT_POS(absent, end); /* Save the original pos. */
-	  STACK_PUSH_ALT(selfp, s + n, s, pkeep);
+	  STACK_PUSH_ALT(selfp, s + n, s, pkeep); /* Next iteration. */
 	  STACK_PUSH_ABSENT;
 	  end = aend;
 	}
