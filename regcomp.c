@@ -4096,11 +4096,11 @@ restart:
 	  return ONIGERR_INVALID_BACKREF;
 	r = setup_tree(NENCLOSE(node)->target, reg, state, env);
 	break;
-      }
 
       case ENCLOSE_ABSENT:
 	r = setup_tree(NENCLOSE(node)->target, reg, state, env);
 	break;
+      }
     }
     break;
 
