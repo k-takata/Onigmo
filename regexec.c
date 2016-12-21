@@ -1429,7 +1429,6 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
   static const UChar FinishCode[] = { OP_FINISH };
 
   int i, num_mem, pop_level;
-  int absent_found = 0;
   ptrdiff_t n, best_len;
   LengthType tlen, tlen2;
   MemNumType mem;
@@ -3083,7 +3082,7 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
 	STACK_POP_ABSENT_POS(absent, end);  /* Restore end-pos. */
 	GET_RELADDR_INC(addr, p);
 	//fprintf(stderr, "ABSENT: s:%p, end:%p, absent:%p, aend:%p\n", s, end, absent, aend);
-	if ((absent > aend) && (s > absent) && absent_found) {
+	if ((absent > aend) && (s > absent)) {
 	  /* An empty match occurred in the absent pattern. */
 	  STACK_POP;
 	  goto fail;
@@ -3093,7 +3092,6 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
 	  p += addr;
 	}
 	else {
-	  absent_found = 0;
 	  STACK_PUSH_ALT(p + addr, s, sprev, pkeep);
 	  n = enclen(encode, s, end);
 	  STACK_PUSH_ABSENT_POS(absent, end); /* Save the original pos. */
@@ -3109,7 +3107,6 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
       /* The pattern inside (?~...) was matched.
        * Set the end-pos temporary and go to next iteration. */
       end = sprev;
-      absent_found = 1;
       //fprintf(stderr, "ABSENT_END: end:%p\n", end);
       STACK_POP_TIL_ABSENT;
       goto fail;
