@@ -3081,7 +3081,9 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
 
 	STACK_POP_ABSENT_POS(absent, end);  /* Restore end-pos. */
 	GET_RELADDR_INC(addr, p);
-	//fprintf(stderr, "ABSENT: s:%p, end:%p, absent:%p, aend:%p\n", s, end, absent, aend);
+#ifdef ONIG_DEBUG_MATCH
+	fprintf(stderr, "ABSENT: s:%p, end:%p, absent:%p, aend:%p\n", s, end, absent, aend);
+#endif
 	if ((absent > aend) && (s > absent)) {
 	  /* An empty match occurred in the absent pattern. */
 	  STACK_POP;
@@ -3107,8 +3109,11 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
     CASE(OP_ABSENT_END)  MOP_IN(OP_ABSENT_END);
       /* The pattern inside (?~...) was matched.
        * Set the end-pos temporary and go to next iteration. */
-      end = sprev;
-      //fprintf(stderr, "ABSENT_END: end:%p\n", end);
+      if (sprev < end)
+	end = sprev;
+#ifdef ONIG_DEBUG_MATCH
+      fprintf(stderr, "ABSENT_END: end:%p\n", end);
+#endif
       STACK_POP_TIL_ABSENT;
       goto fail;
       NEXT;
