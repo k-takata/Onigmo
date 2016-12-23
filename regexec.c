@@ -1429,7 +1429,6 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
   static const UChar FinishCode[] = { OP_FINISH };
 
   int i, num_mem, pop_level;
-  int absent_found = 0;
   ptrdiff_t n, best_len;
   LengthType tlen, tlen2;
   MemNumType mem;
@@ -3071,7 +3070,6 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
     CASE(OP_PUSH_ABSENT_POS)  MOP_IN(OP_PUSH_ABSENT_POS);
       /* Save the absent-start-pos and the original end-pos. */
       STACK_PUSH_ABSENT_POS(s, end);
-      absent_found = 0;
       MOP_OUT;
       JUMP;
 
@@ -3087,13 +3085,17 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
 	fprintf(stderr, "ABSENT: s:%p, end:%p, absent:%p, aend:%p\n", s, end, absent, aend);
 #endif
 	if ((absent > aend) && (s > absent)) {
-	  /* An empty match occurred in the absent pattern. */
+	  /* An empty match occurred in (?~...) at the start point.
+	   * Never match. */
 	  STACK_POP;
 	  goto fail;
 	}
 	else if ((s >= aend) && (s > absent)) {
-	  if ((s > aend) && absent_found)
+	  if (s > aend) {
+	    /* Only one (or less) character matched in the last iteration.
+	     * This is not a possible point. */
 	    goto fail;
+	  }
 	  /* All possible points were found. Try matching after (?~...). */
 	  DATA_ENSURE(0);
 	  p += addr;
@@ -3105,7 +3107,6 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
 	  STACK_PUSH_ALT(selfp, s + n, s, pkeep); /* Next iteration. */
 	  STACK_PUSH_ABSENT;
 	  end = aend;
-	  absent_found = 0;
 	}
       }
       MOP_OUT;
@@ -3116,7 +3117,6 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
        * Set the end-pos temporary and go to next iteration. */
       if (sprev < end)
 	end = sprev;
-      absent_found = 1;
 #ifdef ONIG_DEBUG_MATCH
       fprintf(stderr, "ABSENT_END: end:%p\n", end);
 #endif
