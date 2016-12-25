@@ -102,6 +102,9 @@
 # define ARG_UNUSED
 #endif
 
+#if !defined(RUBY) && defined(RUBY_EXPORT)
+# define RUBY
+#endif
 #ifdef RUBY
 # ifndef RUBY_DEFINES_H
 #  include "ruby/ruby.h"
@@ -264,15 +267,17 @@ typedef unsigned int uintptr_t;
 #ifndef PRIdPTR
 # ifdef _WIN64
 #  define PRIdPTR	"I64d"
-#  define PRIdPTRDIFF	"I64d"
 #  define PRIuPTR	"I64u"
 #  define PRIxPTR	"I64x"
 # else
 #  define PRIdPTR	"ld"
-#  define PRIdPTRDIFF	"ld"
 #  define PRIuPTR	"lu"
 #  define PRIxPTR	"lx"
 # endif
+#endif
+
+#ifndef PRIdPTRDIFF
+# define PRIdPTRDIFF PRIdPTR
 #endif
 
 #include "regenc.h"
@@ -593,7 +598,6 @@ enum OpCode {
   OP_END_LINE,
   OP_SEMI_END_BUF,
   OP_BEGIN_POSITION,
-  OP_BEGIN_POS_OR_LINE,   /* used for implicit anchor optimization */
 
   OP_BACKREF1,
   OP_BACKREF2,
@@ -638,6 +642,9 @@ enum OpCode {
   OP_LOOK_BEHIND,          /* (?<=...) start (no needs end opcode) */
   OP_PUSH_LOOK_BEHIND_NOT, /* (?<!...) start */
   OP_FAIL_LOOK_BEHIND_NOT, /* (?<!...) end   */
+  OP_PUSH_ABSENT_POS,      /* (?~...)  start */
+  OP_ABSENT,               /* (?~...)  start of inner loop */
+  OP_ABSENT_END,           /* (?~...)  end   */
 
   OP_CALL,                 /* \g<name> */
   OP_RETURN,
@@ -725,6 +732,9 @@ typedef void* PointerType;
 #define SIZE_OP_CALL                   (SIZE_OPCODE + SIZE_ABSADDR)
 #define SIZE_OP_RETURN                  SIZE_OPCODE
 #define SIZE_OP_CONDITION              (SIZE_OPCODE + SIZE_MEMNUM + SIZE_RELADDR)
+#define SIZE_OP_PUSH_ABSENT_POS         SIZE_OPCODE
+#define SIZE_OP_ABSENT                 (SIZE_OPCODE + SIZE_RELADDR)
+#define SIZE_OP_ABSENT_END              SIZE_OPCODE
 
 #ifdef USE_COMBINATION_EXPLOSION_CHECK
 # define SIZE_OP_STATE_CHECK           (SIZE_OPCODE + SIZE_STATE_CHECK_NUM)
@@ -836,6 +846,10 @@ typedef struct _OnigStackType {
       UChar *pstr;       /* string position */
     } call_frame;
 #endif
+    struct {
+      UChar *abs_pstr;        /* absent start position */
+      const UChar *end_pstr;  /* end position */
+    } absent_pos;
   } u;
 } OnigStackType;
 
