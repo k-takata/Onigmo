@@ -27,7 +27,7 @@ static FILE* err_file;
 static OnigRegion* region;
 #endif
 
-static void xx(char* pattern, char* str, int from, int to, int mem, int not)
+static void xx(char* pattern, char* str, int from, int to, int mem, int not, int opts)
 {
   int r;
 
@@ -89,7 +89,7 @@ static void xx(char* pattern, char* str, int from, int to, int mem, int not)
   /* ONIG_OPTION_OFF(syn.options, ONIG_OPTION_ASCII_RANGE); */
 
   r = onig_new(&reg, (UChar* )pattern, (UChar* )(pattern + SLEN(pattern)),
-	       ONIG_OPTION_DEFAULT, ONIG_ENCODING_SJIS, &syn, &einfo);
+	       opts, ONIG_ENCODING_SJIS, &syn, &einfo);
   if (r) {
     char s[ONIG_MAX_ERROR_MESSAGE_LEN];
     onig_error_code_to_str((UChar* )s, r, &einfo);
@@ -142,17 +142,22 @@ static void xx(char* pattern, char* str, int from, int to, int mem, int not)
 
 static void x2(char* pattern, char* str, int from, int to)
 {
-  xx(pattern, str, from, to, 0, 0);
+  xx(pattern, str, from, to, 0, 0, ONIG_OPTION_DEFAULT);
+}
+
+static void x2_1(char* pattern, char* str, int from, int to, int opts)
+{
+  xx(pattern, str, from, to, 0, 0, opts);
 }
 
 static void x3(char* pattern, char* str, int from, int to, int mem)
 {
-  xx(pattern, str, from, to, mem, 0);
+  xx(pattern, str, from, to, mem, 0, ONIG_OPTION_DEFAULT);
 }
 
 static void n(char* pattern, char* str)
 {
-  xx(pattern, str, 0, 0, 0, 1);
+  xx(pattern, str, 0, 0, 0, 1, ONIG_OPTION_DEFAULT);
 }
 
 extern int main(int argc, char* argv[])
@@ -849,9 +854,12 @@ extern int main(int argc, char* argv[])
   n("[^[^a-zあいう]&&[^bcdefgうえお]g-w]", "2");
   x2("a<b>バージョンのダウンロード<\\/b>", "a<b>バージョンのダウンロード</b>", 0, 32);
   x2(".<b>バージョンのダウンロード<\\/b>", "a<b>バージョンのダウンロード</b>", 0, 32);
+  x2("[ab](?#This is a comment)[cd]", "ad", 0, 2);
+  x2_1("dash\\s#\\sin", "this is a dash # in a string", 10, 19, ONIG_OPTION_DEFAULT|ONIG_OPTION_EXTEND);
   fprintf(stdout,
        "\nRESULT   SUCC: %d,  FAIL: %d,  ERROR: %d      (by Onigmo %s)\n",
        nsucc, nfail, nerror, onig_version());
+
 
 #ifndef POSIX_TEST
   onig_region_free(region, 1);
