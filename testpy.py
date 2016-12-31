@@ -1564,6 +1564,8 @@ def main():
     x2("(?m:.*abc)", "dddabdd\nddabc", 0, 13)   # optimized /(?m:.*abc)/ ==> /\A(?m:.*abc)/
     x2("(?m:.+abc)", "dddabdd\nddabc", 0, 13)   # optimized
     x2("(?-m:.*abc)", "dddabdd\nddabc", 8, 13)  # optimized /(?-m:.*abc)/ ==> /(?:^|\A)(?m:.*abc)/
+    n("(?-m:.*ab[x-z])", "dddabdd\nddabc")      # optimized
+    x2("(?-m:.*(?:abc|\\Gabc))", "dddabdd\nddabc", 8, 13)  # optimized
     x2("(?-m:.+abc)", "dddabdd\nddabc", 8, 13)  # optimized
     x2("(?-m:.*abc)", "dddabdd\nabc", 8, 11)    # optimized
     n("(?-m:.+abc)", "dddabdd\nabc")            # optimized
@@ -1580,6 +1582,35 @@ def main():
     x2("(?<!(?i:ab))cd", "aacd", 2, 4)
     n("(?<!(?i)ab)cd", "ABcd")
     n("(?<!(?i:ab))cd", "ABcd")
+
+    # Absent operator
+    x2("<-(?~->)->", "<- ->->", 0, 5)
+    x2("<-(?~->)->\n", "<-1->2<-3->\n", 6, 12)
+    x2("<-(?~->)->.*<-(?~->)->", "<-1->2<-3->4<-5->", 0, 17)
+    x2("<-(?~->)->.*?<-(?~->)->", "<-1->2<-3->4<-5->", 0, 11)
+    x2("(?~abc)c", "abc", 0, 3)
+    x2("(?~abc)bc", "abc", 0, 3)
+    x2("(?~abc)abc", "abc", 0, 3)
+    n("(?~)", " ")
+    n("(?~)", "")
+    n(" (?~)", "  ")
+    n(" (?~)", " ")
+    x2("(?~(?~))", "abc", 0, 3)
+    x2("(?~a)", "", 0, 0)
+    x2("(?~a)a", "a", 0, 1)
+    x2("(?~a)", "x", 0, 1)
+    x2("(?~a)a", "xa", 0, 2)
+    x2("(?~.)", "", 0, 0)
+    x2("(?~.)a", "a", 0, 1)
+    x2("(?~.)", "x", 0, 0)
+    x2("(?~.)a", "xa", 1, 2)
+    x2("(?~abc)", "abc", 0, 2)
+    x2("(?~b)", "abc", 0, 1)
+    x2("(?~abc|b)", "abc", 0, 1)
+    n("(?~|abc)", "abc")            # ???
+    x2("(?~abc|)", "abc", 0, 1)     # ???
+    x2("(?~abc|def)x", "abcx", 1, 4)
+    x2("(?~abc|def)x", "defx", 1, 4)
 
     # Perl syntax
     x2("\\Q()\\[a]\\E[b]", "()\\[a]b", 0, 7, syn=onigmo.ONIG_SYNTAX_PERL)
@@ -1604,10 +1635,8 @@ def main():
     x2("(?i)ａｂｃ", "ＡＢＣＡＢＣ", 3, 6, searchtype=SearchType.BACKWARD)
     x2("[a-z]{3}$", "abcabc", 3, 6, searchtype=SearchType.BACKWARD)
     x2("[あ-ん]{3}$", "あいうあいう", 3, 6, searchtype=SearchType.BACKWARD)
-
-    # These match differently. Is it okay?
-    x2(".*[a-z]bc", "abcabc", 0, 6, searchtype=SearchType.BACKWARD)
-    x2(".+[a-z]bc", "abcabc", 0, 6, searchtype=SearchType.BACKWARD)
+    x2(".*[a-z]bc", "abcabc", 3, 6, searchtype=SearchType.BACKWARD) # Issue #69
+    x2(".+[a-z]bc", "abcabc", 2, 6, searchtype=SearchType.BACKWARD) # Issue #69
     x2(".{1,3}[a-z]bc", "abcabc", 2, 6, searchtype=SearchType.BACKWARD)
 
     # onig_match()
