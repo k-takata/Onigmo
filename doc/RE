@@ -1,4 +1,4 @@
-Onigmo (Oniguruma-mod) Regular Expressions Version 6.1.0    2016/12/22
+Onigmo (Oniguruma-mod) Regular Expressions Version 6.1.0    2016/12/25
 
 syntax: ONIG_SYNTAX_RUBY (default)
 
@@ -309,17 +309,23 @@ syntax: ONIG_SYNTAX_RUBY (default)
                         same as \k<name>.
 
   (?~subexp)        absent operator (experimental)
-                    Matches any string which doesn't have subexp as its suffix.
+                    Matches any string which doesn't contain any string which
+                    matches subexp.
+                    Similar to (?:(?!subexp).)*, but easy to write.
 
                     E.g.:
-                      (?~abc) matches: "", "ab", "aab", "cccc", etc.
-                      It doesn't match: "abc", "aabc", "ccccabc", etc.
+                      (?~abc) matches: "", "ab", "aab", "ccdd", etc.
+                      It doesn't match: "abc", "aabc", "ccabcdd", etc.
 
                       \/\*(?~\*\/)\*\/ matches C style comments:
                         "/**/", "/* foobar */", etc.
 
                       \A\/\*(?~\*\/)\*\/\z doesn't match "/**/ */".
-                      This is different from \A\/\*.*?\*\/\z .
+                      This is different from \A\/\*.*?\*\/\z which uses a
+                      reluctant quantifier (.*?).
+
+                      Unlike (?:(?!abc).)*c, (?~abc)c matches "abc", because
+                      (?~abc) matches "ab".
 
                       (?~) never matches.
 
