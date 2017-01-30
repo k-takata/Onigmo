@@ -2,7 +2,7 @@ language: c
 
 branches:
   except:
-    - bregonig
+    - /bregonig/
     - ruby-2.x
 
 compiler:
