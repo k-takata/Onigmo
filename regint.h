@@ -253,6 +253,13 @@
 # include <stdio.h>
 #endif
 
+#ifndef ONIG_DEBUG
+# ifndef NDEBUG
+#  define NDEBUG
+# endif
+#endif
+#include <assert.h>
+
 #ifdef _WIN32
 # if defined(_MSC_VER) && (_MSC_VER < 1300)
 #  ifndef _INTPTR_T_DEFINED

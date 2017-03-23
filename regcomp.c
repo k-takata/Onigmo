@@ -1253,6 +1253,7 @@ compile_length_enclose_node(EncloseNode* node, regex_t* reg)
     break;
 
   case ENCLOSE_STOP_BACKTRACK:
+    assert(node->target != NULL);
     if (IS_ENCLOSE_STOP_BT_SIMPLE_REPEAT(node)) {
       QtfrNode* qn = NQTFR(node->target);
       tlen = compile_length_tree(qn->target, reg);
@@ -1267,6 +1268,7 @@ compile_length_enclose_node(EncloseNode* node, regex_t* reg)
     break;
 
   case ENCLOSE_CONDITION:
+    assert(node->target != NULL);
     len = SIZE_OP_CONDITION;
     if (NTYPE(node->target) == NT_ALT) {
       Node* x = node->target;
