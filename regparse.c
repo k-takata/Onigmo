@@ -2729,6 +2729,7 @@ fetch_name(OnigCodePoint start_code, UChar** src, UChar* end,
       goto err;
     }
 
+    if (r) goto err;
     if (is_num != 0) {
       *rback_num = onig_scan_unsigned_number(&pnum_head, name_end, enc);
       if (*rback_num < 0) return ONIGERR_TOO_BIG_NUMBER;
