@@ -10,6 +10,7 @@ PROP_FILES = \
 	    $(UNICODE_VERSION)/PropList.txt \
 	    $(UNICODE_VERSION)/Scripts.txt \
 	    $(UNICODE_VERSION)/UnicodeData.txt \
+	    $(UNICODE_VERSION)/EastAsianWidth.txt \
 	    $(UNICODE_VERSION)/auxiliary/GraphemeBreakProperty.txt \
 	    $(UNICODE_VERSION)/emoji-data.txt
 
