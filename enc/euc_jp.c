@@ -28,7 +28,7 @@
  * SUCH DAMAGE.
  */
 
-#include "regenc.h"
+#include "../regenc.h"
 
 #define eucjp_islead(c)    ((UChar )((c) - 0xa1) > 0xfe - 0xa1)
 
@@ -500,7 +500,7 @@ static const OnigCodePoint CR_Cyrillic[] = {
   /* TODO: add JIS X 0212 row 7 */
 }; /* CR_Cyrillic */
 
-#include "enc/jis/props.h"
+#include "jis/props.h"
 
 static int
 property_name_to_ctype(OnigEncoding enc, const UChar* p, const UChar* end)

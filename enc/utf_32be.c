@@ -27,7 +27,7 @@
  * SUCH DAMAGE.
  */
 
-#include "regenc.h"
+#include "../regenc.h"
 #include "iso_8859.h"
 
 static OnigCodePoint utf32be_mbc_to_code(const UChar* p, const UChar* end, OnigEncoding enc);

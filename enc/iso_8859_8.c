@@ -27,7 +27,7 @@
  * SUCH DAMAGE.
  */
 
-#include "regenc.h"
+#include "../regenc.h"
 
 #define ENC_IS_ISO_8859_8_CTYPE(code,ctype) \
   ((EncISO_8859_8_CtypeTable[code] & CTYPE_TO_BIT(ctype)) != 0)
