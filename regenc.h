@@ -135,7 +135,7 @@ typedef struct {
 #define USE_UNICODE_AGE_PROPERTIES
 /* #define USE_UNICODE_CASE_FOLD_TURKISH_AZERI */
 /* #define USE_UNICODE_ALL_LINE_TERMINATORS */  /* see Unicode.org UTS #18 */
-#define USE_CASE_MAP_API
+/* #define USE_CASE_MAP_API */
 
 
 #define ONIG_ENCODING_INIT_DEFAULT           ONIG_ENCODING_ASCII
