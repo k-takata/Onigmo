@@ -1152,6 +1152,7 @@ def main():
     n("(?i)(?<!b|aa)c", "Aac")
     x2("(?<=\\babc)d", " abcd", 4, 5)
     x2("(?<=\\Babc)d", "aabcd", 4, 5)
+    n("(?<!a(?:bb|c))", "", err=onigmo.ONIGERR_INVALID_LOOK_BEHIND_PATTERN)
     x2("a\\b?a", "aa", 0, 2)
     x2("[^x]*x", "aaax", 0, 4)
     x2("(?i)[\\x{0}-B]+", "\x00\x01\x02\x1f\x20@AaBbC", 0, 10)
@@ -1172,9 +1173,32 @@ def main():
         x2("(?i)(?<=\u0149)a", "\u02bcna", 2, 3)    # with look-behind
         # Other Unicode tests
         x2("\\x{25771}", "\U00025771", 0, 1)
+    x2("(?i:ss)", "ss", 0, 2)
+    x2("(?i:ss)", "Ss", 0, 2)
+    x2("(?i:ss)", "SS", 0, 2)
+    if is_unicode_encoding(onig_encoding):
+        x2("(?i:ss)", "\u017fS", 0, 2)  # LATIN SMALL LETTER LONG S
+        x2("(?i:ss)", "s\u017f", 0, 2)
+        x2("(?i:ss)", "\u00df", 0, 1)   # LATIN SMALL LETTER SHARP S
+        x2("(?i:ss)", "\u1e9e", 0, 1)   # LATIN CAPITAL LETTER SHARP S
+    x2("(?i:xssy)", "xssy", 0, 4)
+    x2("(?i:xssy)", "xSsy", 0, 4)
+    x2("(?i:xssy)", "xSSy", 0, 4)
+    if is_unicode_encoding(onig_encoding):
+        x2("(?i:xssy)", "x\u017fSy", 0, 4)
+        x2("(?i:xssy)", "xs\u017fy", 0, 4)
+        x2("(?i:xssy)", "x\u00dfy", 0, 3)
+        x2("(?i:xssy)", "x\u1e9ey", 0, 3)
+        x2("(?i:\u00df)", "ss", 0, 2)
+        x2("(?i:\u00df)", "SS", 0, 2)
+        x2("(?i:[\u00df])", "ss", 0, 2)
+        x2("(?i:[\u00df])", "SS", 0, 2)
+    x2("(?i)(?<!ss)z", "qqz", 2, 3)     # Issue #92
+    x2("(?i)(?<!xss)z", "qqz", 2, 3)
     x2("[0-9-a]+", " 0123456789-a ", 1, 13)     # same as [0-9\-a]
     x2("[0-9-\\s]+", " 0123456789-a ", 0, 12)   # same as [0-9\-\s]
     n("[0-9-a]", "", syn=onigmo.ONIG_SYNTAX_GREP, err=onigmo.ONIGERR_UNMATCHED_RANGE_SPECIFIER_IN_CHAR_CLASS)
+    n("[a-\\d]", "", err=onigmo.ONIGERR_CHAR_CLASS_VALUE_AT_END_OF_RANGE)
     x2("[0-9-あ\\\\/\u0001]+", " 0123456789-あ\\/\u0001 ", 1, 16)
     x2("[a-b-]+", "ab-", 0, 3)
     x2("[a-b-&&-]+", "ab-", 2, 3)
@@ -1283,6 +1307,19 @@ def main():
     x3("\\(((?:[^(]|\\g<0>)*)\\)", "(abc)(abc)", 1, 4, 1)   # Issue #48
     x3("\\(((?:[^(]|\\g<0>)*)\\)", "((abc)(abc))", 1, 11, 1)
     x3("\\(((?:[^(]|(\\g<0>))*)\\)", "((abc)(abc))", 6, 11, 2)
+    n("[\\6000", "a", err=onigmo.ONIGERR_TOO_BIG_NUMBER)   # CVE-2017-9226
+    n("[\\H- ]", "", err=onigmo.ONIGERR_UNMATCHED_RANGE_SPECIFIER_IN_CHAR_CLASS)  # CVE-2017-9228
+    x2("c.*\\b", "abc", 2, 3)           # Issue #96
+    x2("abc.*\\b", "abc", 0, 3)         # Issue #96
+    x2("\\b.*abc.*\\b", "abc", 0, 3)    # Issue #96
+    x2('(?i) *TOOKY', 'Mozilla/5.0 (Linux; Android 4.0.3; TOOKY', 34, 40)   # Issue #120
+    n("(?", "", err=onigmo.ONIGERR_END_PATTERN_IN_GROUP)
+    n("(?#", "", err=onigmo.ONIGERR_END_PATTERN_IN_GROUP)
+    n("\\", "", err=onigmo.ONIGERR_END_PATTERN_AT_ESCAPE)
+    n("\\M", "", err=onigmo.ONIGERR_END_PATTERN_AT_META)
+    n("\\M#", "", err=onigmo.ONIGERR_META_CODE_SYNTAX)
+    n("\\C", "", err=onigmo.ONIGERR_END_PATTERN_AT_CONTROL)
+    n("\\C#", "", err=onigmo.ONIGERR_CONTROL_CODE_SYNTAX)
 
     # ONIG_OPTION_FIND_LONGEST option
     x2("foo|foobar", "foobar", 0, 3)
@@ -1296,6 +1333,7 @@ def main():
     # ONIG_OPTION_DONT_CAPTURE_GROUP option
     x2("(ab|cd)*", "cdab", 0, 4, opt=onigmo.ONIG_OPTION_DONT_CAPTURE_GROUP)
     n("(ab|cd)*\\1", "", opt=onigmo.ONIG_OPTION_DONT_CAPTURE_GROUP, err=onigmo.ONIGERR_INVALID_BACKREF)
+    #n("", "", opt=(onigmo.ONIG_OPTION_DONT_CAPTURE_GROUP | onigmo.ONIG_OPTION_CAPTURE_GROUP), err=onigmo.ONIGERR_INVALID_COMBINATION_OF_OPTIONS)  # FIXME: Python crashes on Windows
 
     # character classes (tests for character class optimization)
     x2("[@][a]", "@a", 0, 2);
@@ -1399,6 +1437,8 @@ def main():
     n("\\k<1/>", "", err=onigmo.ONIGERR_INVALID_GROUP_NAME)
     n("\\k<1-1/>", "", err=onigmo.ONIGERR_INVALID_GROUP_NAME)
     n("\\k<a/>", "", err=onigmo.ONIGERR_INVALID_CHAR_IN_GROUP_NAME)
+    n("\\k<aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa>", "", err=onigmo.ONIGERR_UNDEFINED_NAME_REFERENCE)
+    n("\\g<1>", "", err=onigmo.ONIGERR_UNDEFINED_GROUP_REFERENCE)
 
     # character set modifiers
     x2("(?u)\\w+", "あa#", 0, 2);
@@ -1612,6 +1652,7 @@ def main():
     x2("(?~abc|def)x", "abcx", 1, 4)
     x2("(?~abc|def)x", "defx", 1, 4)
     x2("^(?~\\S+)TEST", "TEST", 0, 4)
+    x3('(?~(a)c)', 'aab', -1, -1, 1)    # $1 should not match.
 
     # Perl syntax
     x2("\\Q()\\[a]\\E[b]", "()\\[a]b", 0, 7, syn=onigmo.ONIG_SYNTAX_PERL)

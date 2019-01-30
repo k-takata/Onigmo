@@ -1,5 +1,5 @@
 /**********************************************************************
-  cp932.c -  Onigmo (Oniguruma-mod) (regular expression library)
+  windows_31j.c -  Onigmo (Oniguruma-mod) (regular expression library)
 **********************************************************************/
 /*-
  * Copyright (c) 2002-2009  K.Kosako  <sndgk393 AT ybb DOT ne DOT jp>
@@ -29,7 +29,7 @@
  */
 
 #define ENC_CP932
-#include "shift_jis.c"
+#include "shift_jis.h"
 
 OnigEncodingDefine(windows_31j, Windows_31J) = {
   mbc_enc_len,
@@ -48,7 +48,11 @@ OnigEncodingDefine(windows_31j, Windows_31J) = {
   get_ctype_code_range,
   left_adjust_char_head,
   is_allowed_reverse_match,
+#ifdef USE_CASE_MAP_API
   onigenc_ascii_only_case_map,
+#else
+  NULL,
+#endif
   0,
   ONIGENC_FLAG_NONE,
 };
