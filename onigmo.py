@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2011-2016  K.Takata  <kentkt AT csc DOT jp>
+# Copyright (c) 2011-2019  K.Takata  <kentkt AT csc DOT jp>
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -139,20 +139,26 @@ class OnigErrorInfo(ctypes.Structure):
 
 # load the DLL or the shared library
 
+if sys.version_info[0:3] < (3, 8, 0):
+    loadargs = {}
+else:
+    # Use the default (potentially insecure) search path
+    loadargs = {'winmode': 0}
+
 if os.name in ("nt", "ce"):
     # Win32
     _libname = "onigmo.dll"
     try:
-        libonig = ctypes.cdll.LoadLibrary(_libname)
+        libonig = ctypes.CDLL(_libname, **loadargs)
     except OSError:
         # Sometimes MinGW version has a prefix "lib".
         _libname = "libonigmo.dll"
         try:
-            libonig = ctypes.cdll.LoadLibrary(_libname)
+            libonig = ctypes.CDLL(_libname, **loadargs)
         except OSError:
             # Sometimes MinGW version has the API version.
             _libname = "libonigmo-%d.dll" % _onig_api_version
-            libonig = ctypes.cdll.LoadLibrary(_libname)
+            libonig = ctypes.CDLL(_libname, **loadargs)
 elif sys.platform == "cygwin":
     # Cygwin
     _libname = "cygonigmo-%d.dll" % _onig_api_version
