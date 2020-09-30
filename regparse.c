@@ -2845,11 +2845,13 @@ onig_syntax_warn(ScanEnv *env, const char *fmt, ...)
 {
     va_list args;
     UChar buf[WARN_BUFSIZE];
+#ifndef WASM
     va_start(args, fmt);
     onig_vsnprintf_with_pattern(buf, WARN_BUFSIZE, env->enc,
 		env->pattern, env->pattern_end,
 		(const UChar *)fmt, args);
     va_end(args);
+#endif
 #ifdef RUBY
     if (env->sourcefile == NULL)
       rb_warn("%s", (char *)buf);
