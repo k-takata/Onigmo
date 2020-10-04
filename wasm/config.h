@@ -37,3 +37,4 @@
 /* #undef size_t */
 
 #define WASM
+#define __wasi__

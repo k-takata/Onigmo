@@ -1,3 +1,15 @@
+# Download WASI-SDK from:
+# https://github.com/WebAssembly/wasi-sdk/releases
+
+if [ $BUILD == 'wasi' ]; then
+  echo "* Building with WASI"
+  IPATH="-I$WASI_PATH/include"
+  STDLIB="$WASI_PATH/lib/wasm32-wasi/libc.a"
+else
+  echo "* Building with a lightweight stdlib"
+  STDLIB="wasm/stdlib.c"
+fi
+
 clang \
    --target=wasm32 \
    -Oz \
@@ -8,13 +20,13 @@ clang \
    -Wl,--lto-O3 \
    -Wl,-z,stack-size=$[8 * 1024 * 1024] \
    -o onigmo.wasm \
-   -I wasm -I . -I enc/unicode -Wl,-error-limit=0 \
+   $IPATH -I wasm -I . -I enc/unicode -Wl,-error-limit=0 \
 	regparse.c regcomp.c regexec.c regext.c \
 	regenc.c regtrav.c regversion.c st.c \
 	enc/unicode.c enc/ascii.c enc/utf_8.c \
 	enc/utf_16be.c enc/utf_16le.c \
  	enc/utf_32be.c enc/utf_32le.c enc/iso_8859_1.c \
-  wasm/stdlib.c
+  $STDLIB
 wasm-strip onigmo.wasm
 
 # regsyntax.c
