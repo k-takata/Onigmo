@@ -14,7 +14,7 @@ clang \
 	enc/unicode.c enc/ascii.c enc/utf_8.c \
 	enc/utf_16be.c enc/utf_16le.c \
  	enc/utf_32be.c enc/utf_32le.c enc/iso_8859_1.c \
-        wasm/stdlib.c
+  wasm/stdlib.c
 wasm-strip onigmo.wasm
 
 # regsyntax.c
