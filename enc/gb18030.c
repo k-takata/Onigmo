@@ -28,7 +28,7 @@
  * SUCH DAMAGE.
  */
 
-#include "regenc.h"
+#include "../regenc.h"
 
 #if 1
 #define DEBUG_GB18030(arg)

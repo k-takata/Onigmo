@@ -28,7 +28,7 @@
  * SUCH DAMAGE.
  */
 
-#include "regenc.h"
+#include "../regenc.h"
 #include "iso_8859.h"
 
 #define ENC_CP1252_TO_LOWER_CASE(c) EncCP1252_ToLowerCaseTable[c]

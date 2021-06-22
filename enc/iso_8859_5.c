@@ -27,7 +27,7 @@
  * SUCH DAMAGE.
  */
 
-#include "regenc.h"
+#include "../regenc.h"
 
 #define ENC_ISO_8859_5_TO_LOWER_CASE(c) EncISO_8859_5_ToLowerCaseTable[c]
 #define ENC_IS_ISO_8859_5_CTYPE(code,ctype) \

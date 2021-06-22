@@ -27,7 +27,7 @@
  * SUCH DAMAGE.
  */
 
-#include "regint.h"
+#include "../regint.h"
 
 #define ONIGENC_IS_UNICODE_ISO_8859_1_CTYPE(code,ctype) \
   ((EncUNICODE_ISO_8859_1_CtypeTable[code] & CTYPE_TO_BIT(ctype)) != 0)
@@ -162,7 +162,7 @@ code3_equal(const OnigCodePoint *x, const OnigCodePoint *y)
 #define I(n) OnigSpecialIndexEncode(n)
 #define L(n) SpecialsLengthEncode(n)
 
-#include "casefold.h"
+#include "unicode/casefold.h"
 
 #undef U
 #undef D
@@ -174,7 +174,7 @@ code3_equal(const OnigCodePoint *x, const OnigCodePoint *y)
 #undef I
 #undef L
 
-#include "name2ctype.h"
+#include "unicode/name2ctype.h"
 
 #define CODE_RANGES_NUM numberof(CodeRanges)
 

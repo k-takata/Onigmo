@@ -1,4 +1,4 @@
-#include "regenc.h"
+#include "../regenc.h"
 #ifdef RUBY
 # include "encindex.h"
 #endif
