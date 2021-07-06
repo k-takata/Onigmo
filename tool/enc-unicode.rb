@@ -162,6 +162,31 @@ def parse_scripts(data, categories)
   names.values.flatten << 'Unknown'
 end
 
+def parse_east_asian_width(data)
+  width_types = {}
+  aliases = {}
+  data_foreach('PropertyValueAliases.txt') do |line|
+    if /^ea\s*; (\w+)\s*; (\w+)(?:\s*; (\w+))?/ =~ line
+      aliases[$1] = $2
+    end
+  end
+  data_foreach('EastAsianWidth.txt') do |line|
+    if /^([0-9a-fA-F]+)(?:\.\.([0-9a-fA-F]+))?\s*;\s*(\w+)/ =~ line
+      type = aliases[$3]
+      width_types[type] ||= []
+      if $2
+        width_types[type].concat(($1.to_i(16)..$2.to_i(16)).to_a)
+      else
+        width_types[type].push($1.to_i(16))
+      end
+    end
+  end
+  width_types.each_pair do |type, cps|
+    data[type] = cps
+  end
+  width_types.keys
+end
+
 def parse_aliases(data)
   kv = {}
   data_foreach('PropertyAliases.txt') do |line|
@@ -401,6 +426,7 @@ puts '%{'
 props, data = parse_unicode_data(get_file('UnicodeData.txt'))
 categories = {}
 props.concat parse_scripts(data, categories)
+props.concat parse_east_asian_width(data)
 aliases = parse_aliases(data)
 ages = blocks = graphemeBreaks = nil
 define_posix_props(data)
