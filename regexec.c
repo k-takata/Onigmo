@@ -36,14 +36,6 @@
 # define USE_MATCH_RANGE_MUST_BE_INSIDE_OF_SPECIFIED_RANGE
 #endif
 
-#ifndef USE_TOKEN_THREADED_VM
-# ifdef __GNUC__
-#  define USE_TOKEN_THREADED_VM 1
-# else
-#  define USE_TOKEN_THREADED_VM 0
-# endif
-#endif
-
 #ifdef RUBY
 # define ENC_DUMMY_FLAG (1<<24)
 static inline int
@@ -1430,7 +1422,13 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
 #endif
 	 const UChar* sstart, UChar* sprev, OnigMatchArg* msa)
 {
+#ifdef USE_DIRECT_THREADED_CODE_VM
+  static UChar FinishCode[1 + sizeof(void *)] = { 0 };
+  static int initialized = 0;
+  FinishCode[0] = OP_FINISH;
+#else
   static const UChar FinishCode[] = { OP_FINISH };
+#endif
 
   int i, num_mem, pop_level;
   ptrdiff_t n, best_len;
@@ -1456,14 +1454,14 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
   int num_comb_exp_check = reg->num_comb_exp_check;
 #endif
 
-#if USE_TOKEN_THREADED_VM
+#if USE_DIRECT_THREADED_CODE_VM
 # define OP_OFFSET  1
-# define VM_LOOP JUMP;
+# define VM_LOOP RB_GNUC_EXTENSION_BLOCK(UChar *next = p; p += SIZE_OPCODE; goto *oplabels[*next]);
 # define VM_LOOP_END
 # define CASE(x) L_##x: sbegin = s; OPCODE_EXEC_HOOK;
 # define DEFAULT L_DEFAULT:
 # define NEXT sprev = sbegin; JUMP
-# define JUMP RB_GNUC_EXTENSION_BLOCK(goto *oplabels[*p++])
+# define JUMP RB_GNUC_EXTENSION_BLOCK(UChar *next = p + 1; p += SIZE_OPCODE; goto **(void **)next)
 
   RB_GNUC_EXTENSION static const void *oplabels[] = {
     &&L_OP_FINISH,               /* matching process terminator (no more alternative) */
@@ -1630,10 +1628,11 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
     &&L_OP_SET_OPTION          /* set option */
 # else
     &&L_DEFAULT,
-    &&L_DEFAULT
+    &&L_DEFAULT,
 # endif
+    &&L_OP_THCODE
   };
-#else /* USE_TOKEN_THREADED_VM */
+#else /* USE_DIRECT_THREADED_CODE_VM */
 
 # define OP_OFFSET  0
 # define VM_LOOP                                \
@@ -1646,7 +1645,7 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
 # define DEFAULT default:
 # define NEXT break
 # define JUMP continue; break
-#endif /* USE_TOKEN_THREADED_VM */
+#endif /* USE_DIRECT_THREADED_CODE_VM */
 
 
 #ifdef USE_SUBEXP_CALL
@@ -1690,6 +1689,13 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
 #endif
 
   STACK_PUSH_ENSURED(STK_ALT, (UChar* )FinishCode);  /* bottom stack */
+#ifdef USE_DIRECT_THREADED_CODE_VM
+  if (initialized == 0) {
+      initialized = 1;
+      *(void **)(FinishCode + 1) = &&L_OP_FINISH;
+  }
+#endif
+
   best_len = ONIG_MISMATCH;
   s = (UChar* )sstart;
   pkeep = (UChar* )sstart;
@@ -2753,12 +2759,18 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
 	  switch (*p++) {
 	  case OP_JUMP:
 	  case OP_PUSH:
-	    p += SIZE_RELADDR;
+#ifdef USE_DIRECT_THREADED_CODE_VM
+        p += SIZE_POINTER;
+#endif
+        p += SIZE_RELADDR;
 	    break;
 	  case OP_REPEAT_INC:
 	  case OP_REPEAT_INC_NG:
 	  case OP_REPEAT_INC_SG:
-	  case OP_REPEAT_INC_NG_SG:
+      case OP_REPEAT_INC_NG_SG:
+#ifdef USE_DIRECT_THREADED_CODE_VM
+        p += SIZE_POINTER;
+#endif
 	    p += SIZE_MEMNUM;
 	    break;
 	  default:
@@ -3063,7 +3075,7 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
       {
 	const UChar* aend = ABSENT_END_POS;
 	UChar* absent;
-	UChar* selfp = p - 1;
+	UChar* selfp = p - SIZE_OPCODE;
 
 	STACK_POP_ABSENT_POS(absent, ABSENT_END_POS);  /* Restore end-pos. */
 	GET_RELADDR_INC(addr, p);
@@ -3160,8 +3172,14 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
 
       MOP_OUT;
       JUMP;
-
-    DEFAULT
+   CASE(OP_THCODE)  MOP_IN(OP_THCODE);
+#ifdef USE_DIRECT_THREADED_CODE_VM
+      msa->stack_p = oplabels;
+      msa->stack_n = sizeof(oplabels) / sizeof(oplabels[0]);
+#endif
+      goto finish;
+      MOP_OUT;
+   DEFAULT
       goto bytecode_error;
   } VM_LOOP_END
 
@@ -3188,6 +3206,215 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
   return ONIGERR_UNEXPECTED_BYTECODE;
 }
 
+#ifdef USE_DIRECT_THREADED_CODE_VM
+/**
+ * Initializes label pointer of each bytecode.
+ */
+void __initialize_direct_threaded_code(regex_t *reg)
+{
+    static unsigned char opcodes[] = { OP_THCODE, 0, 0, 0, 0, 0, 0 };
+    static void **labels = NULL;
+    if (labels == NULL) {
+        regex_t tmp = {};
+        tmp.p = opcodes;
+        OnigMatchArg msa = {};
+        msa.stack_p = NULL;
+        match_at(&tmp, NULL, NULL,
+#ifdef USE_MATCH_RANGE_MUST_BE_INSIDE_OF_SPECIFIED_RANGE
+                 NULL,
+#endif
+                 NULL, NULL, &msa);
+        labels = msa.stack_p;
+    }
+    UChar *bp = reg->p;
+    UChar *end = bp + reg->used;
+    LengthType len;
+    int mb_len;
+    while (bp < end) {
+      UChar opcode = *bp;
+      ((void **)(bp + 1))[0] = labels[opcode];
+      bp += SIZE_OPCODE;
+      switch (opcode) {
+          case OP_EXACT1:
+          case OP_ANYCHAR_STAR_PEEK_NEXT:
+          case OP_ANYCHAR_ML_STAR_PEEK_NEXT:
+              bp++;
+              break;
+          case OP_EXACT2:
+              bp += 2;
+              break;
+          case OP_EXACT3:
+              bp += 3;
+              break;
+          case OP_EXACT4:
+              bp += 4;
+              break;
+          case OP_EXACT5:
+              bp += 5;
+              break;
+          case OP_EXACTN:
+              GET_LENGTH_INC(len, bp);
+              bp += len;
+              break;
+          case OP_EXACTMB2N1:
+              bp += 2;
+              break;
+          case OP_EXACTMB2N2:
+              bp += 4;
+              break;
+          case OP_EXACTMB2N3:
+              bp += 6;
+              break;
+          case OP_EXACTMB2N:
+              GET_LENGTH_INC(len, bp);
+              bp += len * 2;
+              break;
+          case OP_EXACTMB3N:
+              GET_LENGTH_INC(len, bp);
+              bp += len * 3;
+              break;
+          case OP_EXACTMBN:
+              GET_LENGTH_INC(mb_len, bp);
+              GET_LENGTH_INC(len, bp);
+              bp += len * mb_len;
+              break;
+          case OP_EXACT1_IC:
+              len = enclen(reg->enc, bp, end);
+              bp += len;
+              break;
+          case OP_EXACTN_IC:
+              GET_LENGTH_INC(len, bp);
+              bp += len;
+              break;
+          case OP_CCLASS:
+          case OP_CCLASS_NOT:
+              bp += SIZE_BITSET;
+              break;
+          case OP_CCLASS_MB:
+          case OP_CCLASS_MB_NOT:
+              GET_LENGTH_INC(len, bp);
+              bp += len;
+              break;
+          case OP_CCLASS_MIX:
+          case OP_CCLASS_MIX_NOT:
+              bp += SIZE_BITSET;
+              GET_LENGTH_INC(len, bp);
+              bp += len;
+              break;
+          case OP_BACKREFN_IC:
+              bp += SIZE_MEMNUM;
+              break;
+          case OP_BACKREF_MULTI_IC:
+          case OP_BACKREF_MULTI:
+              GET_LENGTH_INC(len, bp);
+              bp += len * sizeof(MemNumType);
+              break;
+          case OP_BACKREF_WITH_LEVEL:
+              bp += sizeof(OnigOptionType) + sizeof(LengthType);
+              GET_LENGTH_INC(len, bp);
+              bp += len * sizeof(MemNumType);
+              break;
+          case OP_REPEAT:
+          case OP_REPEAT_NG:
+              bp += SIZE_MEMNUM + SIZE_RELADDR;
+              break;
+          case OP_PUSH_OR_JUMP_EXACT1:
+          case OP_PUSH_IF_PEEK_NEXT:
+              bp += SIZE_RELADDR + 1;
+              break;
+          case OP_LOOK_BEHIND:
+              GET_LENGTH_INC(len, bp);
+              break;
+          case OP_PUSH_LOOK_BEHIND_NOT:
+              bp += sizeof(RelAddrType);
+              GET_LENGTH_INC(len, bp);
+              break;
+          case OP_STATE_CHECK_PUSH:
+          case OP_STATE_CHECK_PUSH_OR_JUMP:
+              bp += SIZE_STATE_CHECK_NUM;
+              bp += SIZE_RELADDR;
+              break;
+          case OP_CONDITION:
+              bp += sizeof(MemNumType) + sizeof(RelAddrType);
+              break;
+          case OP_FINISH:
+          case OP_END:
+          case OP_ANYCHAR:
+          case OP_ANYCHAR_ML:
+          case OP_ANYCHAR_STAR:
+          case OP_ANYCHAR_ML_STAR:
+          case OP_WORD:
+          case OP_NOT_WORD:
+          case OP_WORD_BOUND:
+          case OP_NOT_WORD_BOUND:
+          case OP_WORD_BEGIN:
+          case OP_WORD_END:
+          case OP_ASCII_WORD:
+          case OP_NOT_ASCII_WORD:
+          case OP_ASCII_WORD_BOUND:
+          case OP_NOT_ASCII_WORD_BOUND:
+          case OP_ASCII_WORD_BEGIN:
+          case OP_ASCII_WORD_END:
+          case OP_BEGIN_BUF:
+          case OP_END_BUF:
+          case OP_BEGIN_LINE:
+          case OP_END_LINE:
+          case OP_SEMI_END_BUF:
+          case OP_BEGIN_POSITION:
+          case OP_BACKREF1:
+          case OP_BACKREF2:
+          case OP_KEEP:
+          case OP_FAIL:
+          case OP_POP:
+          case OP_PUSH_POS:
+          case OP_POP_POS:
+          case OP_FAIL_POS:
+          case OP_PUSH_STOP_BT:
+          case OP_POP_STOP_BT:
+          case OP_FAIL_LOOK_BEHIND_NOT:
+          case OP_PUSH_ABSENT_POS:
+          case OP_ABSENT_END:
+          case OP_RETURN:
+              break;
+          case OP_BACKREFN:
+          case OP_MEMORY_START_PUSH:
+          case OP_MEMORY_START:
+          case OP_MEMORY_END_PUSH:
+          case OP_MEMORY_END_PUSH_REC:
+          case OP_MEMORY_END:
+          case OP_MEMORY_END_REC:
+          case OP_REPEAT_INC:
+          case OP_REPEAT_INC_NG:
+          case OP_REPEAT_INC_SG:
+          case OP_REPEAT_INC_NG_SG:
+          case OP_NULL_CHECK_START:
+          case OP_NULL_CHECK_END:
+          case OP_NULL_CHECK_END_MEMST:
+          case OP_NULL_CHECK_END_MEMST_PUSH:
+              bp += SIZE_MEMNUM;
+              break;
+          case OP_SET_OPTION:
+          case OP_SET_OPTION_PUSH:
+              bp += SIZE_OPTION;
+              break;
+          case OP_JUMP:
+          case OP_PUSH:
+          case OP_PUSH_POS_NOT:
+          case OP_ABSENT:
+              bp += SIZE_RELADDR;
+              break;
+          case OP_CALL:
+              bp += SIZE_ABSADDR;
+              break;
+          case OP_STATE_CHECK:
+          case OP_STATE_CHECK_ANYCHAR_STAR:
+          case OP_STATE_CHECK_ANYCHAR_ML_STAR:
+              bp += SIZE_STATE_CHECK_NUM;
+              break;
+      }
+  }
+}
+#endif
 
 static UChar*
 slow_search(OnigEncoding enc, UChar* target, UChar* target_end,
