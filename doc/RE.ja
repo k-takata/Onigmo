@@ -114,6 +114,8 @@
            Unicode以外の場合:
              (?>\x0D\x0A|[\x0A-\x0D])
 
+           ただし、文字集合の中では使用できない。
+
   \X       拡張書記素クラスタ (Extended Grapheme cluster)
 
            Unicodeの場合:
