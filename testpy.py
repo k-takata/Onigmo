@@ -1682,7 +1682,7 @@ def main():
     x2("(?~abc|b)", "abc", 0, 1)
     n("(?~|abc)", "abc")
     n("(?~abc|)", "abc")
-    n("^(?~.*)$", "abc")
+    n("(?~.*)", "abc")
     x2("(?~abc|def)x", "abcx", 1, 4)
     x2("(?~abc|def)x", "defx", 1, 4)
     x2("^(?~\\S+)TEST", "TEST", 0, 4)
