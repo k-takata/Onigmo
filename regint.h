@@ -858,6 +858,7 @@ typedef struct _OnigStackType {
     struct {
       UChar *abs_pstr;        /* absent start position */
       const UChar *end_pstr;  /* end position */
+      const UChar *aend_prev; /* previous end position */
     } absent_pos;
   } u;
 } OnigStackType;
