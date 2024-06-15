@@ -468,7 +468,7 @@ Onigmo (Oniguruma-mod) API  Version 6.1.2  2017/05/10
 
   Return the root node of capture history data tree.
 
-  This value is undefined if matching has faild.
+  This value is undefined if matching has failed.
 
   arguments
   1 region: matching result.
