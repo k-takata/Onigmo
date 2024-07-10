@@ -114,6 +114,8 @@ syntax: ONIG_SYNTAX_RUBY (default)
            Not Unicode:
              (?>\x0D\x0A|[\x0A-\x0D])
 
+           Not available in a character class.
+
   \X       Extended Grapheme cluster
 
            Unicode:
