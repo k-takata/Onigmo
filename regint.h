@@ -668,7 +668,9 @@ enum OpCode {
 
   /* no need: IS_DYNAMIC_OPTION() == 0 */
   OP_SET_OPTION_PUSH,    /* set option and push recover option */
-  OP_SET_OPTION          /* set option */
+  OP_SET_OPTION,         /* set option */
+
+  OP_THCODE
 };
 
 typedef int RelAddrType;
@@ -679,7 +681,19 @@ typedef short int MemNumType;
 typedef short int StateCheckNumType;
 typedef void* PointerType;
 
-#define SIZE_OPCODE           1
+#ifndef USE_DIRECT_THREADED_CODE_VM
+# ifdef __GNUC__
+#  define USE_DIRECT_THREADED_CODE_VM 1
+# else
+#  define USE_TOKEN_THREADED_VM 0
+# endif
+#endif
+
+#ifdef USE_DIRECT_THREADED_CODE_VM
+#define SIZE_OPCODE           (1 + SIZE_POINTER)
+#else
+#define SIZE_OPCODE           (1)
+#endif
 #define SIZE_RELADDR          (int )sizeof(RelAddrType)
 #define SIZE_ABSADDR          (int )sizeof(AbsAddrType)
 #define SIZE_LENGTH           (int )sizeof(LengthType)
@@ -706,7 +720,6 @@ typedef void* PointerType;
   byte = *(p);\
   (p)++;\
 } while(0)
-
 
 /* op-code + arg size */
 #define SIZE_OP_ANYCHAR_STAR            SIZE_OPCODE

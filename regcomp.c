@@ -204,6 +204,10 @@ static int
 add_opcode(regex_t* reg, int opcode)
 {
   BBUF_ADD1(reg, opcode);
+#ifdef USE_DIRECT_THREADED_CODE_VM
+  static const char buf[sizeof(void*)] = {};
+  BBUF_ADD(reg, buf, sizeof(void*));
+#endif
   return 0;
 }
 
@@ -5598,6 +5602,10 @@ static void print_compiled_byte_code_list(FILE* f, regex_t* reg);
 static void print_tree(FILE* f, Node* node);
 #endif
 
+#ifdef USE_DIRECT_THREADED_CODE_VM
+extern void __initialize_direct_threaded_code(regex_t *reg);
+#endif
+
 #ifdef RUBY
 extern int
 onig_compile(regex_t* reg, const UChar* pattern, const UChar* pattern_end,
@@ -5780,6 +5788,10 @@ onig_compile(regex_t* reg, const UChar* pattern, const UChar* pattern_end,
 #endif
   onig_node_free(root);
 
+
+#ifdef USE_DIRECT_THREADED_CODE_VM
+  __initialize_direct_threaded_code(reg);
+#endif
 #ifdef ONIG_DEBUG_COMPILE
 # ifdef USE_NAMED_GROUP
   onig_print_names(stderr, reg);
@@ -6451,6 +6463,9 @@ print_compiled_byte_code_list(FILE* f, regex_t* reg)
       fprintf(f, "\n%ld:", bp - reg->p);
     else
       fprintf(f, " %ld:", bp - reg->p);
+#ifdef USE_DIRECT_THREADED_CODE_VM
+    bp += SIZE_POINTER;
+#endif
     onig_print_compiled_byte_code(f, bp, end, &bp, reg->enc);
   }
 
