@@ -790,11 +790,12 @@ stack_double(OnigStackType** arg_stk_base, OnigStackType** arg_stk_end,
   STACK_INC;\
 } while(0)
 
-#define STACK_PUSH_ABSENT_POS(start, end) do {\
+#define STACK_PUSH_ABSENT_POS(start, end, aend) do {\
   STACK_ENSURE(1);\
   stk->type = STK_ABSENT_POS;\
   stk->u.absent_pos.abs_pstr = (start);\
   stk->u.absent_pos.end_pstr = (end);\
+  stk->u.absent_pos.aend_prev = (aend);\
   STACK_INC;\
 } while(0)
 
@@ -918,11 +919,12 @@ stack_double(OnigStackType** arg_stk_base, OnigStackType** arg_stk_end,
   }\
 } while(0)
 
-#define STACK_POP_ABSENT_POS(start, end) do {\
+#define STACK_POP_ABSENT_POS(start, end, aend) do {\
   stk--;\
   STACK_BASE_CHECK(stk, "STACK_POP_ABSENT_POS"); \
   (start) = stk->u.absent_pos.abs_pstr;\
   (end) = stk->u.absent_pos.end_pstr;\
+  (aend) = stk->u.absent_pos.aend_prev;\
 } while(0)
 
 #define STACK_POS_END(k) do {\
@@ -3054,18 +3056,19 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
       goto fail;
 
     CASE(OP_PUSH_ABSENT_POS)  MOP_IN(OP_PUSH_ABSENT_POS);
-      /* Save the absent-start-pos and the original end-pos. */
-      STACK_PUSH_ABSENT_POS(s, ABSENT_END_POS);
+      /* Save the absent-start-pos, the original end-pos, and the previous end-pos. */
+      STACK_PUSH_ABSENT_POS(s, ABSENT_END_POS, ABSENT_END_POS + 1);
       MOP_OUT;
       JUMP;
 
     CASE(OP_ABSENT)  MOP_IN(OP_ABSENT);
       {
 	const UChar* aend = ABSENT_END_POS;
+	const UChar* aend_prev;
 	UChar* absent;
 	UChar* selfp = p - 1;
 
-	STACK_POP_ABSENT_POS(absent, ABSENT_END_POS);  /* Restore end-pos. */
+	STACK_POP_ABSENT_POS(absent, ABSENT_END_POS, aend_prev);  /* Restore end-pos. */
 	GET_RELADDR_INC(addr, p);
 #ifdef ONIG_DEBUG_MATCH
 	fprintf(stderr, "ABSENT: s:%p, end:%p, absent:%p, aend:%p\n", s, end, absent, aend);
@@ -3076,7 +3079,7 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
 	  STACK_POP;
 	  goto fail;
 	}
-	else if ((s >= aend) && (s > absent)) {
+	else if ((aend < absent) || ((s >= aend) && (s > absent))) {
 	  if (s > aend) {
 	    /* Only one (or less) character matched in the last iteration.
 	     * This is not a possible point. */
@@ -3087,10 +3090,16 @@ match_at(regex_t* reg, const UChar* str, const UChar* end,
 	  p += addr;
 	}
 	else {
-	  STACK_PUSH_ALT(p + addr, s, sprev, pkeep); /* Push possible point. */
-	  n = enclen(encode, s, end);
-	  STACK_PUSH_ABSENT_POS(absent, ABSENT_END_POS); /* Save the original pos. */
-	  STACK_PUSH_ALT(selfp, s + n, s, pkeep); /* Next iteration. */
+	  if (aend < aend_prev) {
+	    /* Search a shorter matching. */
+	    STACK_PUSH_ABSENT_POS(absent, ABSENT_END_POS, aend); /* Save the original pos. */
+	    STACK_PUSH_ALT(selfp, s, sprev, pkeep); /* Next iteration. */
+	  } else {
+	    STACK_PUSH_ALT(p + addr, s, sprev, pkeep); /* Push possible point. */
+	    n = enclen(encode, s, end);
+	    STACK_PUSH_ABSENT_POS(absent, ABSENT_END_POS, aend); /* Save the original pos. */
+	    STACK_PUSH_ALT(selfp, s + n, s, pkeep); /* Next iteration. */
+	  }
 	  STACK_PUSH_ABSENT;
 	  ABSENT_END_POS = aend;
 	}
