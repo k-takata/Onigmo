@@ -1,6 +1,6 @@
 #!/bin/bash
 
-files='Blocks.txt CaseFolding.txt DerivedAge.txt DerivedCoreProperties.txt PropertyAliases.txt PropertyValueAliases.txt PropList.txt Scripts.txt SpecialCasing.txt UnicodeData.txt auxiliary/GraphemeBreakProperty.txt'
+files='Blocks.txt CaseFolding.txt DerivedAge.txt DerivedCoreProperties.txt PropertyAliases.txt PropertyValueAliases.txt PropList.txt Scripts.txt SpecialCasing.txt UnicodeData.txt EastAsianWidth.txt auxiliary/GraphemeBreakProperty.txt'
 emoji_files='emoji-data.txt'
 
 if [ -z $1 ] || [ -z $2 ]; then
