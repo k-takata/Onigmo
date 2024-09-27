@@ -35,7 +35,7 @@
  * Link: http://en.wikipedia.org/wiki/Windows-1253
  */
 
-#include "regenc.h"
+#include "../regenc.h"
 
 #define ENC_CP1253_TO_LOWER_CASE(c) EncCP1253_ToLowerCaseTable[c]
 #define ENC_IS_CP1253_CTYPE(code,ctype) \

@@ -37,7 +37,7 @@
 
 #include <ctype.h>
 
-#include "regenc.h"
+#include "../regenc.h"
 
 #define ASCII                0
 #define UNICODE_ISO_8859_1   1

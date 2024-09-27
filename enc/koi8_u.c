@@ -27,7 +27,7 @@
  * SUCH DAMAGE.
  */
 
-#include "regenc.h"
+#include "../regenc.h"
 
 #define ENC_KOI8_U_TO_LOWER_CASE(c) EncKOI8_U_ToLowerCaseTable[c]
 #define ENC_IS_KOI8_U_CTYPE(code,ctype) \

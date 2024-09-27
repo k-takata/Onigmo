@@ -28,7 +28,7 @@
  * SUCH DAMAGE.
  */
 
-#include "regenc.h"
+#include "../regenc.h"
 
 static const int EncLen_SJIS[] = {
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
@@ -487,7 +487,7 @@ static const OnigCodePoint CR_Cyrillic[] = {
   0x8480, 0x8491,
 }; /* CR_Cyrillic */
 
-#include "enc/jis/props.h"
+#include "jis/props.h"
 
 static int
 property_name_to_ctype(OnigEncoding enc, const UChar* p, const UChar* end)

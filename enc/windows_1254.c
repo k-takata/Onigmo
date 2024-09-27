@@ -35,7 +35,7 @@
  * Link: http://en.wikipedia.org/wiki/Windows-1254
  */
 
-#include "regenc.h"
+#include "../regenc.h"
 #include "iso_8859.h"
 
 #define ENC_CP1254_TO_LOWER_CASE(c) EncCP1254_ToLowerCaseTable[c]
