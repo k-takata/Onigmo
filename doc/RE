@@ -425,6 +425,10 @@ syntax: ONIG_SYNTAX_RUBY (default)
   * The option status of the called group is always effective.
 
     ex. /(?-i:\g<name>)(?i:(?<name>a)){0}/.match("A")
+    
+  * Backreferences target the last occurrence of the called group.
+
+    ex. /(.)\g<1>\1/.match("ABB")
 
   * ONIG_SYNTAX_PERL:
     Use (?&name), (?n), (?-n), (?+n), (?R) or (?0) instead of \g<>.
