@@ -30,7 +30,7 @@
 # don't want to ignore
 !.gitignore
 !.editorconfig
-!.travis.yml
+!/.github/
 
 # working dirs
 .deps

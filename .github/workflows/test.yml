@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches-ignore:
+      - ruby-2.x
+  pull_request:
+    branches-ignore:
+      - ruby-2.x
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        include:
+          - compiler: gcc
+          - compiler: clang
+      fail-fast: false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - run: sudo apt install -y lcov
+      - run: sudo gem install -N lcoveralls
+      - run: echo "CC=${{ matrix.compiler }}" >> $GITHUB_ENV
+      - run: echo "CFLAGS=--coverage" >> $GITHUB_ENV
+      - run: ./autogen.sh
+      - run: >-
+          ./configure ${{ matrix.confopt || '' }} && make
+      - run: make test
+      - run: lcov -c -d .libs -d enc/.libs -o coverage.info
+      - run: lcoveralls --retry-count 5 coverage.info
+      - run: bash <(curl -s https://codecov.io/bash)
