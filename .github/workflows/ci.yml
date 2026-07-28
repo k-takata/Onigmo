@@ -1,0 +1,48 @@
+name: ci
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  test:
+    name: ${{ matrix.compiler }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+    env:
+      CC: ${{ matrix.compiler }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install build prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y autoconf automake libtool
+      - name: Build
+        run: |
+          ./autogen.sh
+          ./configure
+          make
+      - name: Test
+        run: make test
+
+  sanitizers:
+    name: ASan + UBSan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install build prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y autoconf automake libtool
+      - name: Build with sanitizers
+        run: |
+          ./autogen.sh
+          ./configure CFLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
+                      LDFLAGS="-fsanitize=address,undefined"
+          make
+      - name: Test
+        run: make test
